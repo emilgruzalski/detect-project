@@ -43,5 +43,5 @@ outputs:
     description: 'JSON array with the full detection result for every language found in the directory'
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: node24
+  main: dist/index.js

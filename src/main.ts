@@ -31,6 +31,8 @@ function emptyDetection(): Record<keyof Detection, string> {
 }
 
 async function writeSummary(all: Detection[], primary: Detection | undefined, dir: string): Promise<void> {
+  // Job summaries are always available on GitHub runners; skip gracefully elsewhere (e.g. @github/local-action).
+  if (!process.env['GITHUB_STEP_SUMMARY']) return
   const summary = core.summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${dir}</code>\n\n`)
   if (all.length === 0) {
     summary.addRaw('No supported project (Node.js, Python, Go) was found.\n')
@@ -108,7 +110,3 @@ export async function run(): Promise<void> {
     core.warning(message)
   }
 }
-
-run().catch((error: unknown) => {
-  core.setFailed(error instanceof Error ? error.message : String(error))
-})

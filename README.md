@@ -4,10 +4,12 @@ GitHub Action that inspects a directory and reports **which language it is**, **
 
 Typical uses: choosing the right `setup-*` action in a reusable workflow, tagging Docker images with the app version, or deciding between `npm ci` / `pnpm install` / `poetry install` without hard-coding it per repository.
 
+Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the default on GitHub-hosted runners and requires runner v2.327.1+ on self-hosted machines (Node 24 does not run on macOS ≤ 13.4 or ARM32).
+
 ## Usage
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v7
 
 - id: project
   uses: emilgruzalski/detect-project@v1
@@ -92,18 +94,18 @@ If several languages are found in one directory, they are all reported in the `l
   uses: emilgruzalski/detect-project@v1
 
 - if: steps.project.outputs.language == 'node'
-  uses: actions/setup-node@v4
+  uses: actions/setup-node@v7
   with:
-    node-version: ${{ steps.project.outputs.language-version || '20' }}
+    node-version: ${{ steps.project.outputs.language-version || '24' }}
     cache: ${{ steps.project.outputs.package-manager }}
 
 - if: steps.project.outputs.language == 'python'
-  uses: actions/setup-python@v5
+  uses: actions/setup-python@v7
   with:
     python-version: ${{ steps.project.outputs.language-version || '3.12' }}
 
 - if: steps.project.outputs.language == 'go'
-  uses: actions/setup-go@v5
+  uses: actions/setup-go@v7
   with:
     go-version-file: ${{ steps.project.outputs.manifest }}
 
@@ -113,18 +115,24 @@ If several languages are found in one directory, they are all reported in the `l
 
 ## Development
 
+Requires Node.js 24 (see `.node-version`).
+
 ```bash
 npm ci
 npm run typecheck
-npm test            # vitest
-npm run build       # bundles src/main.ts into dist/index.js with ncc
+npm test              # vitest
+npm run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
+npm run local-action  # runs the action locally via @github/local-action using inputs from .env
 ```
 
-`dist/` is committed (GitHub runs the action straight from it); CI fails if it is out of date. Source layout:
+`dist/` is committed (GitHub runs the action straight from it, no `npm install` on the runner); CI fails if it is out of date, so run `npm run package` before committing source changes. To try the action locally, copy `.env.example` to `.env` and run `npm run local-action`.
+
+Source layout:
 
 ```
 src/
-  main.ts              # action entry point: inputs, outputs, job summary
+  index.ts             # runtime entry: calls run() and reports failures
+  main.ts              # run(): inputs → detection → outputs + job summary
   detect.ts            # runs the detectors, picks the primary language
   detectors/
     node.ts python.ts go.ts

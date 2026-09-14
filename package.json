@@ -3,27 +3,37 @@
   "version": "0.1.0",
   "private": true,
   "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go)",
-  "main": "dist/index.js",
   "type": "module",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "engines": {
-    "node": ">=20"
+    "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "tsc --noEmit && ncc build src/main.ts -o dist --minify --license licenses.txt",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "all": "npm run typecheck && npm run test && npm run build"
+    "package": "rimraf dist && rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "package:watch": "npm run package -- --watch",
+    "local-action": "local-action . src/main.ts .env",
+    "all": "npm run typecheck && npm run test && npm run package"
   },
   "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@actions/exec": "^1.1.1",
-    "smol-toml": "^1.3.1"
+    "@actions/core": "^3.0.1",
+    "@actions/exec": "^3.0.0",
+    "smol-toml": "^1.8.0"
   },
   "devDependencies": {
-    "@types/node": "^20.17.0",
-    "@vercel/ncc": "^0.38.3",
-    "typescript": "^5.6.3",
-    "vitest": "^2.1.4"
+    "@github/local-action": "^7.0.1",
+    "@rollup/plugin-commonjs": "^29.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/node": "^24.13.4",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.63.3",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }
