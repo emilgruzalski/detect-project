@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Verify dist/ is up to date
+        run: |
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "::error::dist/ is out of date. Run 'npm run build' and commit the result."
+            git diff --stat dist/
+            exit 1
+          fi
+
+  e2e:
+    name: Run action (${{ matrix.fixture }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - fixture: node-pnpm
+            language: node
+            version: '1.2.3'
+            package-manager: pnpm
+            package-manager-version: '9.12.0'
+            language-version: '20.18.0'
+          - fixture: python-poetry
+            language: python
+            version: '4.5.6'
+            package-manager: poetry
+            package-manager-version: '1.8.4'
+            language-version: '^3.11'
+          - fixture: go-module
+            language: go
+            version: '7.8.9'
+            package-manager: go
+            package-manager-version: '1.22.7'
+            language-version: '1.22.0'
+    steps:
+      - uses: actions/checkout@v4
+      - id: detect
+        uses: ./
+        with:
+          working-directory: __tests__/fixtures/${{ matrix.fixture }}
+          fail-on-unknown: true
+      - name: Assert outputs
+        env:
+          EXPECTED: ${{ toJSON(matrix) }}
+          ACTUAL: ${{ toJSON(steps.detect.outputs) }}
+        run: |
+          fail=0
+          for key in language version package-manager package-manager-version language-version; do
+            expected=$(echo "$EXPECTED" | jq -r ".\"$key\"")
+            actual=$(echo "$ACTUAL" | jq -r ".\"$key\"")
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::$key: expected '$expected', got '$actual'"
+              fail=1
+            else
+              echo "$key = $actual ✔"
+            fi
+          done
+          exit $fail
+
+  e2e-mixed:
+    name: Run action (mixed, forced language)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auto
+        uses: ./
+        with:
+          working-directory: __tests__/fixtures/mixed
+      - id: forced
+        uses: ./
+        with:
+          working-directory: __tests__/fixtures/mixed
+          language: go
+      - id: unknown
+        uses: ./
+        with:
+          working-directory: .github
+      - name: Assert outputs
+        run: |
+          test "${{ steps.auto.outputs.language }}" = node
+          test "$(echo '${{ steps.auto.outputs.languages }}' | jq length)" = 2
+          test "${{ steps.forced.outputs.language }}" = go
+          test "${{ steps.forced.outputs.name }}" = example.com/mixed
+          test "${{ steps.unknown.outputs.language }}" = unknown

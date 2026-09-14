@@ -1,0 +1,47 @@
+name: 'Detect Project'
+description: 'Detects the project language, application version and package manager (Node.js, Python, Go)'
+author: 'Emil Gruzalski'
+
+branding:
+  icon: 'search'
+  color: 'blue'
+
+inputs:
+  working-directory:
+    description: 'Directory to inspect, relative to the workspace root'
+    required: false
+    default: '.'
+  language:
+    description: 'Force a language instead of auto-detecting. One of: auto, node, python, go'
+    required: false
+    default: 'auto'
+  fail-on-unknown:
+    description: 'Fail the step when no supported project is detected'
+    required: false
+    default: 'false'
+
+outputs:
+  language:
+    description: 'Primary language: node, python, go or unknown'
+  name:
+    description: 'Project name from the manifest (package.json name, pyproject name, go.mod module path)'
+  version:
+    description: 'Application version (empty if it could not be determined)'
+  version-source:
+    description: 'Where the version was read from, e.g. package.json, pyproject.toml, VERSION, version.go, git-tag'
+  package-manager:
+    description: 'Detected package manager: npm, yarn, pnpm, bun, pip, poetry, pipenv, uv, pdm, hatch, go, dep'
+  package-manager-version:
+    description: 'Package manager version, if declared (packageManager field, engines, poetry.lock header, ...)'
+  language-version:
+    description: 'Runtime version constraint (.nvmrc, engines.node, .python-version, requires-python, go directive, ...)'
+  manifest:
+    description: 'Path to the manifest file the detection is based on'
+  lockfile:
+    description: 'Path to the lockfile, if one exists'
+  languages:
+    description: 'JSON array with the full detection result for every language found in the directory'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
