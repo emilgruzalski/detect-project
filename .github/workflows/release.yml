@@ -1,0 +1,60 @@
+# Keeps the floating major tag (v1, v2, ...) pointing at the newest release of that major line,
+# so workflows using `detect-project@v1` pick up patches automatically. Runs after a release is
+# published from the GitHub UI (which is also where the "Publish to Marketplace" checkbox lives).
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  major-tag:
+    name: Move major version tag
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.release.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Validate tag
+        id: tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag '$TAG' is not a vMAJOR.MINOR.PATCH tag; not moving any major tag."
+            exit 1
+          fi
+          echo "major=v${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          pkg=$(node -p "require('./package.json').version")
+          if [ "v$pkg" != "$TAG" ]; then
+            echo "::warning::package.json version ($pkg) does not match the release tag ($TAG)."
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Verify dist/ matches the sources
+        run: |
+          npm ci
+          npm run package
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "::error::dist/ in ${{ github.event.release.tag_name }} is stale. Rebuild, commit, and re-tag."
+            exit 1
+          fi
+
+      - name: Force-push ${{ steps.tag.outputs.major }}
+        env:
+          MAJOR: ${{ steps.tag.outputs.major }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -fa "$MAJOR" -m "Point $MAJOR at $TAG"
+          git push origin "$MAJOR" --force

@@ -1,6 +1,6 @@
 {
   "name": "detect-project-action",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go)",
   "type": "module",
@@ -35,5 +35,6 @@
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11"
-  }
+  },
+  "license": "Apache-2.0"
 }

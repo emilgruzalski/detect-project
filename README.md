@@ -141,3 +141,11 @@ __tests__/             # vitest suites + fixtures used by the e2e workflow
 ```
 
 Adding a language means implementing the `Detector` interface from `src/types.ts` and registering it in `src/detectors/index.ts`.
+
+## Releasing
+
+1. Bump `version` in `package.json`, run `npm run all`, commit (including `dist/`).
+2. Create a GitHub release with a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.0`). Tick **Publish this Action to the GitHub Marketplace** on the release form if you want it listed.
+3. The [Release workflow](.github/workflows/release.yml) verifies that `dist/` is fresh and force-moves the floating major tag (`v1`) to that release, so `uses: …@v1` users get the update.
+
+Pre-releases (e.g. `v2.0.0-rc.1`) never move a major tag. Major tags are plain git tags without a GitHub release, which keeps them movable even with immutable releases enabled.
