@@ -1,8 +1,9 @@
 // Bundles src/index.ts and every dependency into a single ESM file that the runner executes directly.
+// Sucrase only strips types; type checking is done separately by `npm run typecheck`.
 // See: https://rollupjs.org/introduction/
 import commonjs from '@rollup/plugin-commonjs'
 import nodeResolve from '@rollup/plugin-node-resolve'
-import typescript from '@rollup/plugin-typescript'
+import sucrase from '@rollup/plugin-sucrase'
 
 const config = {
   input: 'src/index.ts',
@@ -12,7 +13,11 @@ const config = {
     format: 'es',
     sourcemap: true,
   },
-  plugins: [typescript({ tsconfig: './tsconfig.json', include: ['src/**/*.ts'] }), nodeResolve({ preferBuiltins: true }), commonjs()],
+  plugins: [
+    nodeResolve({ preferBuiltins: true, extensions: ['.ts', '.js', '.json'] }),
+    sucrase({ transforms: ['typescript'], include: ['src/**/*.ts'] }),
+    commonjs(),
+  ],
 }
 
 export default config

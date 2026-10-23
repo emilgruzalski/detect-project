@@ -120,7 +120,7 @@ Requires Node.js 24 (see `.node-version`).
 ```bash
 npm ci
 npm run typecheck
-npm test              # vitest
+npm test              # vitest (unit tests + e2e tests that run the bundled dist/index.js)
 npm run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
 npm run local-action  # runs the action locally via @github/local-action using inputs from .env
 ```
@@ -137,14 +137,14 @@ src/
   detectors/
     node.ts python.ts go.ts
   utils/               # fs helpers, TOML/INI parsing, version normalisation, runtime files
-__tests__/             # vitest suites + fixtures used by the e2e workflow
+__tests__/             # vitest suites (e2e.test.ts runs dist/) + fixtures used by the e2e tests and workflow
 ```
 
 Adding a language means implementing the `Detector` interface from `src/types.ts` and registering it in `src/detectors/index.ts`.
 
 ## Releasing
 
-1. Bump `version` in `package.json`, run `npm run all`, commit (including `dist/`).
+1. Bump `version` in `package.json`, add an entry to [CHANGELOG.md](CHANGELOG.md), run `npm run all`, commit (including `dist/`).
 2. Create a GitHub release with a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.0`). Tick **Publish this Action to the GitHub Marketplace** on the release form if you want it listed.
 3. The [Release workflow](.github/workflows/release.yml) verifies that `dist/` is fresh and force-moves the floating major tag (`v1`) to that release, so `uses: …@v1` users get the update.
 

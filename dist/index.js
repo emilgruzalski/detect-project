@@ -29650,99 +29650,103 @@ function info(message) {
     process.stdout.write(message + os.EOL);
 }
 
+function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
 async function isFile(file) {
-    try {
-        return (await fs$1.stat(file)).isFile();
-    }
-    catch {
-        return false;
-    }
+  try {
+    return (await fs$1.stat(file)).isFile()
+  } catch (e2) {
+    return false
+  }
 }
+
 async function readText(file) {
-    try {
-        return await fs$1.readFile(file, 'utf8');
-    }
-    catch {
-        return undefined;
-    }
+  try {
+    return await fs$1.readFile(file, 'utf8')
+  } catch (e3) {
+    return undefined
+  }
 }
+
 async function readJson(file) {
-    const text = await readText(file);
-    if (text === undefined)
-        return undefined;
-    try {
-        return JSON.parse(text);
-    }
-    catch {
-        return undefined;
-    }
+  const text = await readText(file);
+  if (text === undefined) return undefined
+  try {
+    return JSON.parse(text) 
+  } catch (e4) {
+    return undefined
+  }
 }
+
 /** Returns the first entry of `candidates` that exists as a file in `dir` (relative path). */
 async function firstExisting(dir, candidates) {
-    for (const candidate of candidates) {
-        if (await isFile(path$1.join(dir, candidate)))
-            return candidate;
-    }
-    return undefined;
+  for (const candidate of candidates) {
+    if (await isFile(path$1.join(dir, candidate))) return candidate
+  }
+  return undefined
 }
+
 /** Reads a single-line "version file" such as `.nvmrc` or `VERSION`, ignoring comments and blank lines. */
 async function readVersionFile(file) {
-    const text = await readText(file);
-    if (text === undefined)
-        return undefined;
-    const line = text
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .find((l) => l.length > 0 && !l.startsWith('#'));
-    return line;
+  const text = await readText(file);
+  if (text === undefined) return undefined
+  const line = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.length > 0 && !l.startsWith('#'));
+  return line
 }
+
+
+
+
+
+
+
 const DEFAULT_IGNORE = [
-    'node_modules',
-    '.git',
-    '.venv',
-    'venv',
-    '.tox',
-    '.nox',
-    '__pycache__',
-    'dist',
-    'build',
-    'vendor',
-    '.idea',
-    '.vscode',
-    'site-packages',
-    '.mypy_cache',
-    '.pytest_cache',
-    '.ruff_cache',
+  'node_modules',
+  '.git',
+  '.venv',
+  'venv',
+  '.tox',
+  '.nox',
+  '__pycache__',
+  'dist',
+  'build',
+  'vendor',
+  '.idea',
+  '.vscode',
+  'site-packages',
+  '.mypy_cache',
+  '.pytest_cache',
+  '.ruff_cache',
 ];
+
 /** Breadth-first walk over files under `dir`, yielding paths relative to `dir`. */
 async function walkFiles(dir, opts) {
-    const ignore = new Set(opts.ignore ?? DEFAULT_IGNORE);
-    const results = [];
-    let frontier = [''];
-    for (let depth = 0; depth <= opts.maxDepth && frontier.length > 0; depth++) {
-        const next = [];
-        for (const rel of frontier) {
-            let entries;
-            try {
-                entries = await fs$1.readdir(path$1.join(dir, rel), { withFileTypes: true });
-            }
-            catch {
-                continue;
-            }
-            for (const entry of entries) {
-                const entryRel = rel ? path$1.join(rel, entry.name) : entry.name;
-                if (entry.isDirectory()) {
-                    if (!ignore.has(entry.name))
-                        next.push(entryRel);
-                }
-                else if (entry.isFile()) {
-                    results.push(entryRel);
-                }
-            }
+  const ignore = new Set(_nullishCoalesce$5(opts.ignore, () => ( DEFAULT_IGNORE)));
+  const results = [];
+  let frontier = [''];
+  for (let depth = 0; depth <= opts.maxDepth && frontier.length > 0; depth++) {
+    const next = [];
+    for (const rel of frontier) {
+      let entries;
+      try {
+        entries = await fs$1.readdir(path$1.join(dir, rel), { withFileTypes: true });
+      } catch (e5) {
+        continue
+      }
+      for (const entry of entries) {
+        const entryRel = rel ? path$1.join(rel, entry.name) : entry.name;
+        if (entry.isDirectory()) {
+          if (!ignore.has(entry.name)) next.push(entryRel);
+        } else if (entry.isFile()) {
+          results.push(entryRel);
         }
-        frontier = next;
+      }
     }
-    return results;
+    frontier = next;
+  }
+  return results
 }
 
 /*!
@@ -29772,38 +29776,286 @@ async function walkFiles(dir, opts) {
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-let DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[T ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[-+]\d{2}:\d{2})?$/i;
+function getLineColFromPtr(string, ptr) {
+    let lines = string.slice(0, ptr).split(/\r?\n/);
+    return [lines.length, lines.pop().length + 1];
+}
+function makeCodeBlock(string, line, column) {
+    let lines = string.split(/\r?\n/);
+    let codeblock = '';
+    let numberLen = (Math.log10(line + 1) | 0) + 1;
+    for (let i = line - 1; i <= line + 1; i++) {
+        let l = lines[i - 1];
+        if (!l)
+            continue;
+        codeblock += i.toString().padEnd(numberLen, ' ');
+        codeblock += ':  ';
+        codeblock += l;
+        codeblock += '\n';
+        if (i === line) {
+            codeblock += ' '.repeat(numberLen + column + 2);
+            codeblock += '^\n';
+        }
+    }
+    return codeblock;
+}
+class TomlError extends Error {
+    line;
+    column;
+    codeblock;
+    constructor(message, options) {
+        const [line, column] = getLineColFromPtr(options.toml, options.ptr);
+        const codeblock = makeCodeBlock(options.toml, line, column);
+        super(`Invalid TOML document: ${message}\n\n${codeblock}`, options);
+        this.line = line;
+        this.column = column;
+        this.codeblock = codeblock;
+    }
+    /** @internal */
+    static x(message, ctx, ptr) {
+        throw new TomlError(message, { toml: ctx.s, ptr: ptr ?? ctx.p });
+    }
+}
+
+/*!
+ * Copyright (c) Squirrel Chat et al., All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/** @internal */
+function parseString(ctx) {
+    let startPtr = ctx.p;
+    let c = ctx.s.charCodeAt(ctx.p++);
+    let first = c;
+    let isLiteral = c === 0x27; /* ' */
+    let isMultiline = c === ctx.s.charCodeAt(ctx.p) && c === ctx.s.charCodeAt(ctx.p + 1);
+    if (isMultiline) {
+        // Trim initial newline
+        if ((c = ctx.s.charCodeAt(ctx.p += 2)) === 0xa /* \n */)
+            ctx.p++;
+        else if (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */)
+            ctx.p += 2;
+    }
+    // For the record: it is not worth it to use a fast-path for literal strings using `indexOf`.
+    // Doing a char-by-char iteration ends up dispatching less instructions, for the same wall-clock runtime.
+    let parsed = '';
+    let sliceStart = ctx.p;
+    // states:
+    //   0 - decoding
+    //   1 - decoding escape
+    //   2 - whitespace escape (no newline encountered yet, must fail on non-whitespace)
+    //   3 - whitespace escape (newline encountered, allowed to transition back to normal decode)
+    let state = 0;
+    for (; ctx.p < ctx.s.length; ctx.p++) {
+        c = ctx.s.charCodeAt(ctx.p);
+        // Deal with newlines first, since that simplifies control character checking and handling across all states
+        if (isMultiline && (c === 0xa /* \n */ || (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */))) {
+            state = state && 3;
+        }
+        // Control characters are banned in TOML, so we throw an error if we encounter them
+        else if ((c < 0x20 && c !== 0x9 /* \t */) || c === 0x7f) {
+            TomlError.x('control characters are not allowed in strings', ctx);
+        }
+        // The string might terminate while we're parsing through a newline escape.
+        // It must have encountered a newline; otherwise, it'll simply fail in another branch.
+        else if ((!state || state === 3) && c === first && (!isMultiline || (ctx.s.charCodeAt(ctx.p + 1) === first && ctx.s.charCodeAt(ctx.p + 2) === first))) {
+            if (isMultiline) {
+                // If the string ends with 4-5 quotes, then the first 1-2 are part of the string
+                if (ctx.s.charCodeAt(ctx.p + 3) === first)
+                    ctx.p++;
+                if (ctx.s.charCodeAt(ctx.p + 3) === first)
+                    ctx.p++;
+            }
+            // If we're in a newline escape still, then there's nothing to add.
+            if (!state) {
+                // Avoid a useless concat operation if the string can be used as-is.
+                let s = ctx.s.slice(sliceStart, ctx.p);
+                parsed = parsed ? parsed + s : s;
+            }
+            ctx.p += isMultiline ? 3 : 1;
+            return parsed;
+        }
+        // Baseline state; keep moving forward unless an escape sequence starts
+        else if (!state) {
+            if (!isLiteral && c === 0x5c /* \ */) {
+                parsed += ctx.s.slice(sliceStart, (sliceStart = ctx.p));
+                state = 1;
+            }
+        }
+        else if (state === 1) {
+            if (c === 0x78 /* x */ || c === 0x75 /* u */ || c === 0x55 /* U */) { // Unicode escape
+                let errPtr = ctx.p++ - 1;
+                let value = 0;
+                let len = c === 0x78 /* x */ ? 2 : c === 0x75 /* u */ ? 4 : 8;
+                for (let j = 0; j < len; j++, ctx.p++) {
+                    let hex = ctx.s.charCodeAt(ctx.p);
+                    let digit = 
+                    /* 0-9 */ hex >= 0x30 && hex <= 0x39 ? hex - 0x30 :
+                        /* A-F */ hex >= 0x41 && hex <= 0x46 ? hex - 0x41 + 10 :
+                            /* a-f */ hex >= 0x61 && hex <= 0x66 ? hex - 0x61 + 10 : -1;
+                    if (digit < 0)
+                        TomlError.x('invalid non-hex character in unicode escape', ctx);
+                    value = (value << 4) | digit;
+                }
+                // Because JS does bitwise on signed 32bit integers, all 0xfzzzzzzz values are actually seen as negative
+                if (value < 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) {
+                    TomlError.x('invalid unicode escape', ctx, errPtr);
+                }
+                parsed += String.fromCodePoint(value);
+                sliceStart = ctx.p--;
+                state = 0;
+            }
+            // Newline escape sequence. We only need to care about spaces and tabs; newlines are dealt with earlier
+            else if (isMultiline && (c === 0x20 || c === 0x9 /* \t */)) {
+                state = 2;
+            }
+            // Basic escape sequence
+            else {
+                if (c === 0x62 /* b */)
+                    parsed += '\b';
+                else if (c === 0x74 /* t */)
+                    parsed += '\t';
+                else if (c === 0x6e /* n */)
+                    parsed += '\n';
+                else if (c === 0x66 /* f */)
+                    parsed += '\f';
+                else if (c === 0x72 /* r */)
+                    parsed += '\r';
+                else if (c === 0x65 /* e */)
+                    parsed += '\x1b';
+                else if (c === 0x22 /* " */)
+                    parsed += '"';
+                else if (c === 0x5c /* \ */)
+                    parsed += '\\';
+                else
+                    TomlError.x('unrecognised escape sequence', ctx);
+                sliceStart = ctx.p + 1;
+                state = 0;
+            }
+        }
+        // Newline escape continuation: keep moving forward until the first non-whitespace char
+        else if (c !== 0x20 && c !== 0x9 /* \t */) {
+            if (state === 2)
+                TomlError.x('invalid escape: only line-ending whitespace may be escaped', ctx, sliceStart);
+            // State cannot be zero, or we'd have branched earlier already.
+            // If it's a backslash, immediately transition to the escape state so it can be processed.
+            state = !isLiteral && c === 0x5c /* \ */ ? 1 : 0;
+            sliceStart = ctx.p;
+        }
+    }
+    TomlError.x('unfinished string', ctx, startPtr);
+}
+
+/*!
+ * Copyright (c) Squirrel Chat et al., All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+let DATE_TIME_RE = /^(\d{4}-\d{2}-\d{2})?[Tt ]?(?:(\d{2}):\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|z|[-+]\d{2}:\d{2})?$/i;
 class TomlDate extends Date {
     #hasDate = false;
     #hasTime = false;
     #offset = null;
-    constructor(date) {
+    constructor(date, fasttype, unsafeDelim) {
         let hasDate = true;
         let hasTime = true;
         let offset = 'Z';
+        let c;
         if (typeof date === 'string') {
-            let match = date.match(DATE_TIME_RE);
-            if (match) {
-                if (!match[1]) {
-                    hasDate = false;
-                    date = `0000-01-01T${date}`;
+            if (fasttype)
+                prep: {
+                    // Date-time
+                    if (fasttype < 3) {
+                        if (+date.slice(11, 13) > 23) {
+                            date = '';
+                            break prep;
+                        }
+                        // Local
+                        if (fasttype === 2) {
+                            offset = null;
+                            date += 'Z';
+                        }
+                        // Offset; keep track of offset if not Z
+                        else if ((c = date.charCodeAt(date.length - 1)) !== 0x5a /* Z */ && c !== 0x7a /* z */) {
+                            offset = date.slice(date.length - 6);
+                        }
+                        if (unsafeDelim)
+                            date = date.slice(0, 10) + 'T' + date.slice(11);
+                    }
+                    // Time
+                    else if (fasttype === 4) {
+                        date = +date.slice(0, 2) > 23 ? '' : `0000-01-01T${date}Z`;
+                    }
+                    hasDate = fasttype !== 4;
+                    hasTime = fasttype !== 3;
                 }
-                hasTime = !!match[2];
-                // Make sure to use T instead of a space. Breaks in case of extreme values otherwise.
-                hasTime && date[10] === ' ' && (date = date.replace(' ', 'T'));
-                // Do not allow rollover hours.
-                if (match[2] && +match[2] > 23) {
-                    date = '';
+            else {
+                let match = date.match(DATE_TIME_RE);
+                if (match) {
+                    if (!match[1]) {
+                        hasDate = false;
+                        date = `0000-01-01T${date}`;
+                    }
+                    hasTime = !!match[2];
+                    // Make sure to use T instead of a space. Breaks in case of extreme values otherwise.
+                    hasTime && date[10] === ' ' && (date = date.replace(' ', 'T'));
+                    // Do not allow rollover hours.
+                    if (match[2] && +match[2] > 23) {
+                        date = '';
+                    }
+                    else {
+                        offset = match[3] || null;
+                        if (!offset && hasTime)
+                            date += 'Z';
+                    }
                 }
                 else {
-                    offset = match[3] || null;
-                    date = date.toUpperCase();
-                    if (!offset && hasTime)
-                        date += 'Z';
+                    date = '';
                 }
-            }
-            else {
-                date = '';
             }
         }
         super(date);
@@ -29840,7 +30092,7 @@ class TomlDate extends Date {
         if (this.#offset === null)
             return iso.slice(0, -1);
         // Offset DateTime
-        if (this.#offset === 'Z')
+        if (this.#offset === 'Z' || this.#offset === 'z')
             return iso;
         // This part is quite annoying: JS strips the original timezone from the ISO string representation
         // Instead of using a "modified" date and "Z", we restore the representation "as authored"
@@ -29900,410 +30152,29 @@ class TomlDate extends Date {
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-function getLineColFromPtr(string, ptr) {
-    let lines = string.slice(0, ptr).split(/\r\n|\n|\r/g);
-    return [lines.length, lines.pop().length + 1];
+function isDigit(char, base = 10) {
+    return base === 16
+        ? (char > 0x2f && char < 0x3a) || (char > 0x40 && char < 0x47) || (char > 0x60 && char < 0x67)
+        : (char > 0x2f && char < 0x30 + base);
 }
-function makeCodeBlock(string, line, column) {
-    let lines = string.split(/\r\n|\n|\r/g);
-    let codeblock = '';
-    let numberLen = (Math.log10(line + 1) | 0) + 1;
-    for (let i = line - 1; i <= line + 1; i++) {
-        let l = lines[i - 1];
-        if (!l)
-            continue;
-        codeblock += i.toString().padEnd(numberLen, ' ');
-        codeblock += ':  ';
-        codeblock += l;
-        codeblock += '\n';
-        if (i === line) {
-            codeblock += ' '.repeat(numberLen + column + 2);
-            codeblock += '^\n';
-        }
-    }
-    return codeblock;
-}
-class TomlError extends Error {
-    line;
-    column;
-    codeblock;
-    constructor(message, options) {
-        const [line, column] = getLineColFromPtr(options.toml, options.ptr);
-        const codeblock = makeCodeBlock(options.toml, line, column);
-        super(`Invalid TOML document: ${message}\n\n${codeblock}`, options);
-        this.line = line;
-        this.column = column;
-        this.codeblock = codeblock;
-    }
-}
-
-/*!
- * Copyright (c) Squirrel Chat et al., All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/** @internal */
-function indexOfNewline(str, start = 0) {
-    let idx = str.indexOf('\n', start);
-    if (str.charCodeAt(idx - 1) === 0xd /* \r */)
-        idx--;
-    return idx;
+function isEndOfValue(char, delim) {
+    // Whitespace -- we're permissive on `\r` for performance; it'll be dealt with later anyway
+    return char === 0x20 || char === 0x9 /* \t */ || char === 0xa /* \n */ || char === 0xd /* \r */ ||
+        // Structure end or next value delimiter
+        (delim && (char === delim || char === 0x2c /* , */)) ||
+        // Comment
+        char === 0x23; /* # */
 }
 /** @internal */
-function skipComment(ctx) {
-    for (; ctx.p < ctx.s.length; ctx.p++) {
-        let c = ctx.s.charCodeAt(ctx.p);
-        if (c === 0xa /* \n */)
-            break;
-        if (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */) {
-            ctx.p++;
-            break;
-        }
-        if ((c < 0x20 && c !== 0x9 /* \t */) || c === 0x7f) {
-            throw new TomlError('control characters are not allowed in comments', {
-                toml: ctx.s,
-                ptr: ctx.p,
-            });
-        }
-    }
-}
-/** @internal */
-function skipVoid(ctx, banNewLines, banComments) {
-    let c;
-    while (1) {
-        while ((c = ctx.s.charCodeAt(ctx.p)) === 0x20 ||
-            c === 0x9 /* \t */ ||
-            (!banNewLines &&
-                (c === 0xa /* \n */ || (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */))))
-            ctx.p++;
-        if (banComments || c !== 0x23 /* # */)
-            break;
-        skipComment(ctx);
-    }
-}
-/** @internal */
-function skipUntil(ctx, sep, end) {
-    let ptr = ctx.p;
-    if (!end) {
-        ptr = indexOfNewline(ctx.s, ptr);
-        ctx.p = ptr < 0 ? ctx.s.length : ptr;
-        return;
-    }
-    for (; ctx.p < ctx.s.length; ctx.p++) {
-        let c = ctx.s.charCodeAt(ctx.p);
-        if (c === 0x23 /* # */) {
-            skipComment(ctx);
-        }
-        else if (c === end || c === sep) {
-            return;
-        }
-    }
-    throw new TomlError('cannot find end of structure', {
-        toml: ctx.s,
-        ptr,
-    });
-}
-
-/*!
- * Copyright (c) Squirrel Chat et al., All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-// let CTRL_REGEX = /[\x00-\x08\x0f-\x1f\x7f]/
-let INT_REGEX = /^((0x[0-9a-fA-F](_?[0-9a-fA-F])*)|(([+-]|0[ob])?\d(_?\d)*))$/;
-let FLOAT_REGEX = /^[+-]?\d(_?\d)*(\.\d(_?\d)*)?([eE][+-]?\d(_?\d)*)?$/;
-let LEADING_ZERO = /^[+-]?0[0-9_]/;
-/** @internal */
-function parseString(ctx) {
-    let start = ctx.p;
-    let c = ctx.s.charCodeAt(ctx.p++);
-    let first = c;
-    let isLiteral = c === 0x27; /* ' */
-    let isMultiline = c === ctx.s.charCodeAt(ctx.p) && c === ctx.s.charCodeAt(ctx.p + 1);
-    if (isMultiline) {
-        // Trim initial newline
-        if ((c = ctx.s.charCodeAt(ctx.p += 2)) === 0xa /* \n */)
-            ctx.p++;
-        else if (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */)
-            ctx.p += 2;
-    }
-    /*
-    The fast path does not seem to bring significant performance gains, so it's commented out.
-    Kept for reference and/or future fafoing.
-
-    Without: spec  5.08 µs/iter    3.88 ipc (99.44% cache)   23.90 branch misses   28.61k cycles    111.01k instructions
-             5MB   115.73 ms/iter  2.51 ipc (98.36% cache)   3.12M branch misses   619.30M cycles   1.56G instructions
-
-    With:    spec  5.09 µs/iter    3.90 ipc (99.46% cache)   24.42 branch misses   28.57k cycles    111.49k instructions
-             5MB   113.89 ms/iter  2.47 ipc (98.38% cache)   3.12M branch misses   611.94M cycles   1.51G instructions
-
-    if (c === "'") {
-        // Literal strings fast path - no transform needs to occur; just grab the str and that's it
-        let endPtr = str.indexOf(isMultiline ? "'''" : "'", ptr)
-        if (endPtr < 0) {
-            throw new TomlError("unfinished string literal", { toml: str, ptr })
-        }
-
-        if (isMultiline) {
-            // If the string ends with 4-5 quotes, then the first 1-2 are part of the string
-            if (str[endPtr + 3] === "'") endPtr++
-            if (str[endPtr + 3] === "'") endPtr++
-        }
-
-        let string = str.slice(ptr, endPtr)
-        if (CTRL_REGEX.test(string)) {
-            let match = string.match(CTRL_REGEX)!
-            throw new TomlError('control characters are not allowed in strings', { toml: str, ptr: ptr + (match.index ?? 0) })
-        }
-        return [string, endPtr + (isMultiline ? 3 : 1)]
-    }
-    */
-    let parsed = '';
-    let sliceStart = ctx.p;
-    // states:
-    //   0 - decoding
-    //   1 - decoding escape
-    //   2 - whitespace escape (no newline encountered yet, must fail on non-whitespace)
-    //   3 - whitespace escape (newline encountered, allowed to transition back to normal decode)
-    let state = 0;
-    for (; ctx.p < ctx.s.length; ctx.p++) {
-        c = ctx.s.charCodeAt(ctx.p);
-        // Deal with newlines first, since that simplifies control character checking and handling across all states
-        if (isMultiline && (c === 0xa /* \n */ || (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */))) {
-            state = state && 3;
-        }
-        // Control characters are banned in TOML, so we throw an error if we encounter them
-        else if ((c < 0x20 && c !== 0x9 /* \t */) || c === 0x7f) {
-            throw new TomlError('control characters are not allowed in strings', {
-                toml: ctx.s,
-                ptr: ctx.p,
-            });
-        }
-        // The string might terminate while we're parsing through a newline escape.
-        // It must have encountered a newline; otherwise, it'll simply fail in another branch.
-        else if ((!state || state === 3) && c === first && (!isMultiline || (ctx.s.charCodeAt(ctx.p + 1) === first && ctx.s.charCodeAt(ctx.p + 2) === first))) {
-            if (isMultiline) {
-                // If the string ends with 4-5 quotes, then the first 1-2 are part of the string
-                if (ctx.s.charCodeAt(ctx.p + 3) === first)
-                    ctx.p++;
-                if (ctx.s.charCodeAt(ctx.p + 3) === first)
-                    ctx.p++;
-            }
-            // If we're in a newline escape still, then there's nothing to add.
-            if (!state)
-                parsed += ctx.s.slice(sliceStart, ctx.p);
-            ctx.p += isMultiline ? 3 : 1;
-            return parsed;
-        }
-        else if (!state) {
-            if (!isLiteral && c === 0x5c /* \ */) {
-                parsed += ctx.s.slice(sliceStart, (sliceStart = ctx.p));
-                state = 1;
-            }
-        }
-        else if (state === 1) {
-            if (c === 0x78 /* x */ || c === 0x75 /* u */ || c === 0x55 /* U */) { // Unicode escape
-                let value = 0;
-                let len = c === 0x78 /* x */ ? 2 : c === 0x75 /* u */ ? 4 : 8;
-                for (let j = 0; j < len; j++, ctx.p++) {
-                    let hex = ctx.s.charCodeAt(ctx.p + 1);
-                    let digit = 
-                    /* 0-9 */ hex >= 0x30 && hex <= 0x39 ? hex - 0x30 :
-                        /* A-F */ hex >= 0x41 && hex <= 0x46 ? hex - 0x41 + 10 :
-                            /* a-f */ hex >= 0x61 && hex <= 0x66 ? hex - 0x61 + 10 : -1;
-                    if (digit < 0)
-                        throw new TomlError('invalid non-hex character in unicode escape', { toml: ctx.s, ptr: ctx.p + 1 });
-                    value = (value << 4) | digit;
-                }
-                // Because JS does bitwise on signed 32bit integers, all 0xfzzzzzzz values are actually seen as negative
-                if (value < 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) {
-                    throw new TomlError('invalid unicode escape', { toml: ctx.s, ptr: ctx.p });
-                }
-                parsed += String.fromCodePoint(value);
-                sliceStart = ctx.p + 1;
-                state = 0;
-            }
-            else if (c === 0x20 || c === 0x9 /* \t */) { // If it was a newline, it'd have been handled earlier
-                state = 2;
-            }
-            else {
-                if (c === 0x62 /* b */)
-                    parsed += '\b';
-                else if (c === 0x74 /* t */)
-                    parsed += '\t';
-                else if (c === 0x6e /* n */)
-                    parsed += '\n';
-                else if (c === 0x66 /* f */)
-                    parsed += '\f';
-                else if (c === 0x72 /* r */)
-                    parsed += '\r';
-                else if (c === 0x65 /* e */)
-                    parsed += '\x1b';
-                else if (c === 0x22 /* " */)
-                    parsed += '"';
-                else if (c === 0x5c /* \ */)
-                    parsed += '\\';
-                else
-                    throw new TomlError('unrecognized escape sequence', { toml: ctx.s, ptr: ctx.p });
-                sliceStart = ctx.p + 1;
-                state = 0;
-            }
-        }
-        else if (c !== 0x20 && c !== 0x9 /* \t */) {
-            if (state === 2) {
-                throw new TomlError('invalid escape: only line-ending whitespace may be escaped', {
-                    toml: ctx.s,
-                    ptr: sliceStart,
-                });
-            }
-            // State cannot be zero, or we'd have branched earlier already.
-            // If it's a backslash, immediately transition to the escape state so it can be processed.
-            state = !isLiteral && c === 0x5c /* \ */ ? 1 : 0;
-            sliceStart = ctx.p;
-        }
-    }
-    throw new TomlError('unfinished string', { toml: ctx.s, ptr: start });
-}
-function sliceAndTrimEndOf(ctx, start, end) {
-    let value = ctx.s.slice(start, end);
-    let commentIdx = value.indexOf('#');
-    if (commentIdx > 0) {
-        // The call to skipComment allows to "validate" the comment
-        // (absence of control characters)
-        skipComment({ s: value, p: commentIdx});
-        value = value.slice(0, commentIdx);
-    }
-    return value.trimEnd();
-}
-/** @internal */
-function parseValue(ctx, integersAsBigInt, end) {
-    let ptr = ctx.p;
-    let err = { toml: ctx.s, ptr };
-    skipUntil(ctx, 0x2c /* , */, end);
-    let value = sliceAndTrimEndOf(ctx, ptr, ctx.p);
-    if (!value)
-        throw new TomlError('incomplete declaration: value expected', err);
-    if (value === '-inf')
-        return -Infinity;
-    if (value === 'inf' || value === '+inf')
-        return Infinity;
-    if (value === 'nan' || value === '+nan' || value === '-nan')
-        return NaN;
-    // Avoid FP representation of -0
-    if (value === '-0')
-        return integersAsBigInt ? 0n : 0;
-    // Numbers
-    let isInt = INT_REGEX.test(value);
-    if (isInt || FLOAT_REGEX.test(value)) {
-        if (LEADING_ZERO.test(value)) {
-            throw new TomlError('leading zeroes are not allowed', err);
-        }
-        value = value.replace(/_/g, '');
-        let numeric = +value;
-        if (isNaN(numeric)) {
-            throw new TomlError('invalid number', err);
-        }
-        if (isInt) {
-            if ((isInt = !Number.isSafeInteger(numeric)) && !integersAsBigInt) {
-                throw new TomlError('integer value cannot be represented losslessly', err);
-            }
-            if (isInt || integersAsBigInt === true)
-                numeric = BigInt(value);
-        }
-        return numeric;
-    }
-    const date = new TomlDate(value);
-    if (!date.isValid())
-        throw new TomlError('invalid value', err);
-    return date;
-}
-
-/*!
- * Copyright (c) Squirrel Chat et al., All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/** @internal */
-function extractValue(ctx, end, integersAsBigInt) {
-    let ptr = ctx.p;
-    let c = ctx.s.charCodeAt(ptr);
+function extractValue(ctx, end) {
+    let errPtr = ctx.p;
+    let c = ctx.s.charCodeAt(ctx.p);
     // Structs
     if (c === 0x5b /* [ */ || c === 0x7b /* { */) {
-        if (!ctx.d--) {
-            throw new TomlError('document contains excessively nested structures. aborting.', {
-                toml: ctx.s,
-                ptr,
-            });
-        }
+        ctx.d-- || TomlError.x('document contains excessively nested structures. aborting.', ctx);
         let value = c === 0x5b /* [ */
-            ? parseArray(ctx, integersAsBigInt)
-            : parseInlineTable(ctx, integersAsBigInt);
+            ? parseArray(ctx)
+            : parseInlineTable(ctx);
         ctx.d++;
         return value;
     }
@@ -30315,18 +30186,233 @@ function extractValue(ctx, end, integersAsBigInt) {
     // We can fast-path because the first character is enough to know the only possible value
     if (c === 0x74 /* t */) { // Only possible valid value is `true`
         if (ctx.s.charCodeAt(++ctx.p) !== 0x72 || ctx.s.charCodeAt(++ctx.p) !== 0x75 || ctx.s.charCodeAt(++ctx.p) !== 0x65)
-            throw new TomlError('invalid value', { toml: ctx.s, ptr });
-        ctx.p++;
-        return true;
+            TomlError.x('invalid value', ctx, errPtr);
+        return ctx.p++, true;
     }
     if (c === 0x66 /* f */) { // Only possible valid value is `false`
         if (ctx.s.charCodeAt(++ctx.p) !== 0x61 || ctx.s.charCodeAt(++ctx.p) !== 0x6c || ctx.s.charCodeAt(++ctx.p) !== 0x73 || ctx.s.charCodeAt(++ctx.p) !== 0x65)
-            throw new TomlError('invalid value', { toml: ctx.s, ptr });
-        ctx.p++;
-        return false;
+            TomlError.x('invalid value', ctx, errPtr);
+        return ctx.p++, false;
     }
-    // Legacy logic for numbers and dates. Slow and needs to be rewritten.
-    return parseValue(ctx, integersAsBigInt, end);
+    if (c === 0x2b /* + */ || c === 0x2d /* - */) {
+        return parseNumber(ctx, ctx.p, ctx.s.charCodeAt(++ctx.p), 0x2c - c, end);
+    }
+    // Rough heuristic, but `parseDate` falls back to number parsing if it's a false positive.
+    // e.g.: `a = 1\n-------------- = 1` would match this heuristic, but gracefully fallback to numbers.
+    if (ctx.s.charCodeAt(ctx.p + 4) === 0x2d /* - */ && ctx.s.charCodeAt(ctx.p + 7) === 0x2d /* - */) {
+        return parseDate(ctx, c, end);
+    }
+    // Same logic as above; `parseTime` falls back to number parsing if it's a false positive.
+    if (ctx.s.charCodeAt(ctx.p + 2) === 0x3a /* : */) {
+        return parseTime(ctx, c, end);
+    }
+    return parseNumber(ctx, ctx.p, c, 0, end);
+}
+// State:
+// 0: init
+// 1: integer
+// 2: fractional dot
+// 3: fractional
+// 4: exponent letter
+// 5: exponent
+// 6: exponent sign
+// 7: exponent with sign
+// >9: underscore; see below
+//     -> 12: was integer
+//     -> 14: was fractional
+//     -> 16: was exponent
+// states 2-5, 14, 16 are ONLY permitted iif base === 10
+function parseNumber(ctx, startPtr, startChr, sign, endChr) {
+    let c = startChr;
+    let state = 0;
+    let hasUnderscores = false;
+    // (+/-)inf
+    if (c === 0x69 /* i */) {
+        if (ctx.s.charCodeAt(++ctx.p) !== 0x6e || ctx.s.charCodeAt(++ctx.p) !== 0x66)
+            TomlError.x('invalid value', ctx, startPtr);
+        return ctx.p++, (sign || 1) / 0;
+    }
+    // (+/-)nan
+    if (c === 0x6e /* n */) {
+        if (ctx.s.charCodeAt(++ctx.p) !== 0x61 || ctx.s.charCodeAt(++ctx.p) !== 0x6e)
+            TomlError.x('invalid value', ctx, startPtr);
+        return ctx.p++, NaN;
+    }
+    // Leading zero
+    // Only allowed cases: `0<EOV>`, `0.(...)`, `0e(...)`, `0x(...)`, `0b(...)`, `0o(...)`
+    // FWIW, `0e(...)` is a stupid case, but it's not banned per-se so we have to parse it
+    if (c === 0x30 /* 0 */) {
+        if (++ctx.p >= ctx.s.length || isEndOfValue(c = ctx.s.charCodeAt(ctx.p), endChr))
+            return ctx.bi === true ? 0n : 0; // note: conveniently deals with `-0`
+        if (!sign) {
+            if (c === 0x78 /* x */)
+                return parseIntegerBaseN(ctx, startPtr, 16, endChr);
+            else if (c === 0x62 /* b */)
+                return parseIntegerBaseN(ctx, startPtr, 2, endChr);
+            else if (c === 0x6f /* o */)
+                return parseIntegerBaseN(ctx, startPtr, 8, endChr);
+        }
+        if (c === 0x2e /* . */)
+            state = 2;
+        else if (c === 0x65 /* e */ || c === 0x45 /* E */)
+            state = 4;
+        else
+            TomlError.x('illegal leading zero', ctx, startPtr);
+    }
+    // If the 1st char is not a digit by now, then it's not a valid TOML value at all
+    else if (!isDigit(c))
+        TomlError.x('invalid value', ctx, startPtr);
+    while (++ctx.p < ctx.s.length && (c = ctx.s.charCodeAt(ctx.p), !isEndOfValue(c, endChr))) {
+        if (!state)
+            state = 1; // Detects single-digit numbers we can use a fast parse path for
+        // The way the states are numbered is not random: underscores are always permitted in odd-numbered states and
+        // never permitted in even-numbered ones.
+        if (c === 0x5f /* _ */) {
+            if (!(state & 1))
+                TomlError.x('illegal underscore', ctx);
+            state += 11; // 11 is a marker that makes the state even and greater than 9; see the numbering + rationale above
+            hasUnderscores = true;
+        }
+        // Transition to fractional part.
+        else if (state === 1 && c === 0x2e /* . */)
+            state = 2;
+        // Transition to exponent part.
+        else if ((state === 1 || state === 3) && (c === 0x65 /* e */ || c === 0x45 /* E */))
+            state = 4;
+        // + and - are permitted in state 4 only (handled before entering the function for state 0)
+        else if (state === 4 && (c === 0x2b /* + */ || c === 0x2d /* - */)) {
+            state = 6;
+        }
+        // All special cases have been handled; only digits are allowed here
+        else if (!isDigit(c))
+            TomlError.x(`illegal character in numeric literal`, ctx);
+        // Clear state flags
+        else if (state > 9)
+            state -= 11;
+        else if (!(state & 1))
+            state++;
+    }
+    // Single-char number; we can fast-path these very easily.
+    if (!state) {
+        let val = (startChr - 0x30 /* 0 */) * (sign || 1);
+        return ctx.bi === true ? BigInt(val) : val;
+    }
+    // Even-numbered states absolutely require a digit next; not even end of value is permitted
+    if (!(state & 1))
+        TomlError.x('unfinished numeric value', ctx, startPtr);
+    let str = ctx.s.slice(startPtr, ctx.p);
+    if (hasUnderscores)
+        str = str.replaceAll('_', ''); // perf: replaceAll 1.25x faster than replace with a regex
+    return state > 1
+        ? parseFloat(str)
+        : parseInteger(ctx, str, 10, startPtr);
+}
+function parseIntegerBaseN(ctx, startPtr, base, endChr) {
+    let c, underscore = 1;
+    while (++ctx.p < ctx.s.length && (c = ctx.s.charCodeAt(ctx.p), !isEndOfValue(c, endChr))) {
+        if (c === 0x5f /* _ */) {
+            if (underscore & 1)
+                TomlError.x('illegal underscore', ctx);
+            underscore = 3;
+        }
+        // We only need to check if the number is a valid digit, nothing else is permitted
+        else if (!isDigit(c, base))
+            TomlError.x(`illegal character in numeric literal`, ctx);
+        // Clear underscore flag
+        else if (underscore & 1)
+            underscore--;
+    }
+    // Trailing underscore is not allowed
+    if (underscore & 1)
+        TomlError.x('unfinished numeric value', ctx);
+    let str = ctx.s.slice(startPtr + 2, ctx.p);
+    if (underscore)
+        str = str.replaceAll('_', ''); // perf: replaceAll 1.25x faster than replace with a regex
+    return parseInteger(ctx, str, base, startPtr);
+}
+function parseInteger(ctx, str, base, startPtr) {
+    if (ctx.bi !== true)
+        int: {
+            let val = parseInt(str, base);
+            if (!Number.isSafeInteger(val)) {
+                if (ctx.bi)
+                    break int;
+                TomlError.x('integer value cannot be represented losslessly', ctx, startPtr);
+            }
+            return val;
+        }
+    return base === 10 ? BigInt(str) : BigInt((base === 2 ? '0b' : base === 8 ? '0o' : '0x') + str);
+}
+function parseDate(ctx, c, endChr) {
+    let startPtr = ctx.p++, unsafeSeparator;
+    if (!isDigit(c) ||
+        !isDigit(ctx.s.charCodeAt(ctx.p++)) ||
+        !isDigit(ctx.s.charCodeAt(ctx.p++)) ||
+        !isDigit(ctx.s.charCodeAt(ctx.p++))) {
+        return parseNumber(ctx, ctx.p = startPtr, c, 0, endChr);
+    }
+    ctx.p += 5;
+    if (!isDigit(ctx.s.charCodeAt(ctx.p++)))
+        TomlError.x('invalid date-time: date part is malformed', ctx, startPtr);
+    if (ctx.p >= ctx.s.length || (((c = ctx.s.charCodeAt(ctx.p)) !== 0x20 || (unsafeSeparator = true, !isDigit(ctx.s.charCodeAt(ctx.p + 1)))) && c !== 0x54 /* T */ && c !== 0x74 /* t */)) {
+        let t = ctx.s.slice(startPtr, ctx.p);
+        return readDate(ctx, t, 3, false, startPtr);
+    }
+    if (ctx.s.charCodeAt(ctx.p += 3) !== 0x3a /* : */)
+        TomlError.x('invalid date-time: time part is malformed', ctx, startPtr);
+    if (ctx.s.charCodeAt(ctx.p += 3) === 0x3a /* : */)
+        ctx.p += 3;
+    if (ctx.s.charCodeAt(ctx.p) === 0x2e /* . */)
+        while (isDigit(ctx.s.charCodeAt(++ctx.p)))
+            ;
+    if (c = ctx.s.charCodeAt(ctx.p)) {
+        if (c === 0x5a /* Z */ || c === 0x7a /* z */) {
+            let t = ctx.s.slice(startPtr, ++ctx.p);
+            return readDate(ctx, t, 1, unsafeSeparator, startPtr, '[+00:00]');
+        }
+        if (c === 0x2b /* + */ || c === 0x2d /* - */) {
+            // Temporal's ZonedDateTime is weird asf when it comes to dealing with traditional offsets...
+            // It's 1.2x faster to allocate a new string to pass to ZDT than use Instant.toZonedDateTimeISO
+            let t = ctx.s.slice(startPtr, ctx.p += 6);
+            return readDate(ctx, t, 1, unsafeSeparator, startPtr, !ctx.ld && ('[' + ctx.s.slice(ctx.p - 6, ctx.p) + ']'));
+        }
+    }
+    let t = ctx.s.slice(startPtr, ctx.p);
+    return readDate(ctx, t, 2, unsafeSeparator, startPtr);
+}
+function parseTime(ctx, c, endChr) {
+    let start = ctx.p;
+    if (!isDigit(c) || !isDigit(ctx.s.charCodeAt(++ctx.p))) {
+        return parseNumber(ctx, --ctx.p, c, 0, endChr);
+    }
+    if (ctx.s.charCodeAt(ctx.p += 4) === 0x3a /* : */)
+        ctx.p += 3;
+    if (ctx.s.charCodeAt(ctx.p) === 0x2e /* . */)
+        while (isDigit(ctx.s.charCodeAt(++ctx.p)))
+            ;
+    let t = ctx.s.slice(start, ctx.p);
+    return readDate(ctx, t, 4, false, start);
+}
+function readDate(ctx, str, type, unsafeDelim, errPtr, temporalSuffix) {
+    if (ctx.ld) {
+        let date = new TomlDate(str, type, unsafeDelim);
+        if (!date.isValid())
+            TomlError.x('invalid date', ctx, errPtr);
+        return date;
+    }
+    try {
+        if (temporalSuffix)
+            str += temporalSuffix;
+        switch (type) {
+            case 1: return Temporal.ZonedDateTime.from(str);
+            case 2: return Temporal.PlainDateTime.from(str);
+            case 3: return Temporal.PlainDate.from(str);
+            case 4: return Temporal.PlainTime.from(str);
+        }
+    }
+    catch (e) {
+        TomlError.x(e instanceof Error ? e.message : '' + e, ctx, errPtr);
+    }
 }
 
 /*!
@@ -30356,83 +30442,124 @@ function extractValue(ctx, end, integersAsBigInt) {
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-let KEY_PART_RE = /^[a-zA-Z0-9-_]+[ \t]*$/;
 /** @internal */
-function parseKey(ctx, end = '=') {
-    let start = ctx.p;
-    let dot = start - 1;
-    let parsed = [];
-    let endPtr = ctx.s.indexOf(end, start);
-    if (endPtr < 0) {
-        throw new TomlError('incomplete key-value: cannot find end of key', {
-            toml: ctx.s,
-            ptr: start,
-        });
-    }
-    do {
-        let c = ctx.s.charCodeAt(ctx.p = ++dot);
-        // If it's whitespace, ignore
-        if (c !== 0x20 && c !== 0x9 /* \t */) {
-            // If it's a string
-            if (c === 0x22 /* " */ || c === 0x27 /* ' */) {
-                if (c === ctx.s.charCodeAt(ctx.p + 1) && c === ctx.s.charCodeAt(ctx.p + 2)) {
-                    throw new TomlError('multiline strings are not allowed in keys', {
-                        toml: ctx.s,
-                        ptr: ctx.p,
-                    });
-                }
-                let part = parseString(ctx);
-                dot = ctx.s.indexOf('.', ctx.p);
-                let strEnd = ctx.s.slice(ctx.p, dot < 0 || dot > endPtr ? endPtr : dot);
-                let newLine = indexOfNewline(strEnd);
-                if (newLine > -1) {
-                    throw new TomlError('newlines are not allowed in keys', {
-                        toml: ctx.s,
-                        ptr: newLine,
-                    });
-                }
-                if (strEnd.trimStart()) {
-                    throw new TomlError('found extra tokens after the string part', {
-                        toml: ctx.s,
-                        ptr: ctx.p,
-                    });
-                }
-                if (endPtr < ctx.p) {
-                    endPtr = ctx.s.indexOf(end, ctx.p);
-                    if (endPtr < 0) {
-                        throw new TomlError('incomplete key-value: cannot find end of key', {
-                            toml: ctx.s,
-                            ptr: start,
-                        });
-                    }
-                }
-                parsed.push(part);
-            }
-            else {
-                // Normal raw key part consumption and validation
-                dot = ctx.s.indexOf('.', ctx.p);
-                let part = ctx.s.slice(ctx.p, dot < 0 || dot > endPtr ? endPtr : dot);
-                if (!KEY_PART_RE.test(part)) {
-                    throw new TomlError('only letter, numbers, dashes and underscores are allowed in keys', {
-                        toml: ctx.s,
-                        ptr: ctx.p,
-                    });
-                }
-                parsed.push(part.trimEnd());
-            }
+function skipComment(ctx) {
+    for (; ctx.p < ctx.s.length; ctx.p++) {
+        let c = ctx.s.charCodeAt(ctx.p);
+        if (c === 0xa /* \n */)
+            break;
+        if (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */) {
+            ctx.p++;
+            break;
         }
-        // Until there's no more dot
-    } while (dot + 1 && dot < endPtr);
-    ctx.p = endPtr + 1;
-    skipVoid(ctx, true, true);
-    return parsed;
+        if ((c < 0x20 && c !== 0x9 /* \t */) || c === 0x7f) {
+            TomlError.x('control characters are not allowed in comments', ctx);
+        }
+    }
 }
 /** @internal */
-function parseInlineTable(ctx, integersAsBigInt) {
-    let res = {};
+function skipVoid(ctx, banNewLines, banComments) {
+    let c;
+    while (ctx.p < ctx.s.length) {
+        while (ctx.p < ctx.s.length && ((c = ctx.s.charCodeAt(ctx.p)) === 0x20 ||
+            c === 0x9 /* \t */ ||
+            (!banNewLines &&
+                (c === 0xa /* \n */ || (c === 0xd /* \r */ && ctx.s.charCodeAt(ctx.p + 1) === 0xa /* \n */)))))
+            ctx.p++;
+        if (banComments || c !== 0x23 /* # */)
+            break;
+        skipComment(ctx);
+    }
+}
+
+/*!
+ * Copyright (c) Squirrel Chat et al., All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/** @internal */
+function parseKey(ctx, end = 0x3d /* = */) {
+    // States:
+    // 0: before first char
+    // 1: parsing bare key
+    // 2: after key component
+    let startPtr;
+    let state = 0;
+    let parsed = [];
+    let sliceStart;
+    let c = ctx.s.charCodeAt(startPtr = ctx.p);
+    do {
+        // End of key
+        if (c === end) {
+            if (!state)
+                TomlError.x('unexpected end of key', ctx);
+            if (state === 1)
+                parsed.push(ctx.s.slice(sliceStart, ctx.p));
+            return ctx.p++, parsed;
+        }
+        // Dotted key separator
+        else if (c === 0x2e /* . */) {
+            if (!state)
+                TomlError.x('illegal empty bare key', ctx);
+            if (state === 1)
+                parsed.push(ctx.s.slice(sliceStart, ctx.p));
+            state = 0;
+        }
+        // Quoted key
+        else if (!state && (c === 0x22 /* " */ || c === 0x27 /* ' */)) {
+            if (c === ctx.s.charCodeAt(ctx.p + 1) && c === ctx.s.charCodeAt(ctx.p + 2))
+                TomlError.x('illegal quoted key: multiline strings are not allowed', ctx);
+            parsed.push(parseString(ctx));
+            state = 2;
+            ctx.p--;
+        }
+        // Whitespace; no-op in state 0 and 2, end of bare key in state 1
+        else if (c === 0x20 || c === 0x9 /* \t */) {
+            if (state === 1) {
+                parsed.push(ctx.s.slice(sliceStart, ctx.p));
+                state = 2;
+            }
+        }
+        // If state is post-key, no character is allowed; otherwise ensure it's a bare-key component
+        else if (state === 2 || (c < 0x30 && c !== 0x2d /* - */) || (c > 0x39 && c < 0x41) || (c > 0x5a && c < 0x61 && c !== 0x5f /* _ */) || c > 0x7a) {
+            TomlError.x('illegal character in key', ctx);
+        }
+        // Illegal character
+        else if (!state) {
+            state = 1;
+            sliceStart = ctx.p;
+        }
+    } while (c = ctx.s.charCodeAt(++ctx.p));
+    TomlError.x('incomplete key-value: cannot find end of key', ctx, startPtr);
+}
+/** @internal */
+function parseInlineTable(ctx) {
+    let startPtr = ctx.p++;
+    let res = Object.create(null);
     let seen = new Set();
     let c;
-    ctx.p++;
     while (ctx.p < ctx.s.length) {
         skipVoid(ctx);
         if ((c = ctx.s.charCodeAt(ctx.p)) === 0x7d /* } */) {
@@ -30442,67 +30569,60 @@ function parseInlineTable(ctx, integersAsBigInt) {
         let k;
         let t = res;
         let hasOwn = false;
-        let p = ctx.p;
+        let errPtr = ctx.p;
         let key = parseKey(ctx);
         for (let i = 0; i < key.length; i++) {
             if (i)
-                t = hasOwn ? t[k] : (t[k] = {});
+                t = hasOwn ? t[k] : (t[k] = Object.create(null));
             k = key[i];
             if ((hasOwn = Object.hasOwn(t, k)) && (typeof t[k] !== 'object' || seen.has(t[k]))) {
-                throw new TomlError('trying to redefine an already defined value', {
-                    toml: ctx.s,
-                    ptr: p,
-                });
+                TomlError.x('trying to redefine an already defined value', ctx, errPtr);
             }
-            if (!hasOwn && k === '__proto__') {
+            let unsafe = k === '__proto__';
+            if (ctx.uk && (unsafe || k === 'constructor')) {
+                t = ctx.uk !== 1 && TomlError.x('document contains an unsafe property', ctx, errPtr);
+                break;
+            }
+            if (!hasOwn && unsafe) {
                 Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
             }
         }
         if (hasOwn) {
-            throw new TomlError('trying to redefine an already defined value', {
-                toml: ctx.s,
-                ptr: ctx.p,
-            });
+            TomlError.x('trying to redefine an already defined value', ctx, errPtr);
         }
-        let value = extractValue(ctx, 0x7d /* } */, integersAsBigInt);
-        seen.add(t[k] = value);
+        skipVoid(ctx, true, true);
+        let value = extractValue(ctx, 0x7d /* } */);
+        if (t && typeof (t[k] = value) === 'object')
+            seen.add(value);
         skipVoid(ctx);
         if ((c = ctx.s.charCodeAt(ctx.p++)) === 0x7d /* } */) {
             return res;
         }
-        if (c !== 0x2c /* , */) {
-            throw new TomlError('expected comma or end of structure', { toml: ctx.s, ptr: ctx.p - 1 });
-        }
+        if (c !== 0x2c /* , */)
+            TomlError.x('expected comma or end of structure', ctx, ctx.p - 1);
     }
-    throw new TomlError('unfinished table encountered', {
-        toml: ctx.s,
-        ptr: ctx.p,
-    });
+    TomlError.x('unfinished table', ctx, startPtr);
 }
 /** @internal */
-function parseArray(ctx, integersAsBigInt) {
+function parseArray(ctx) {
+    let startPtr = ctx.p++;
     let res = [];
     let c;
-    ctx.p++;
     while (ctx.p < ctx.s.length) {
         skipVoid(ctx);
         if ((c = ctx.s.charCodeAt(ctx.p)) === 0x5d /* ] */) {
             ctx.p++;
             return res;
         }
-        res.push(extractValue(ctx, 0x5d /* ] */, integersAsBigInt));
+        res.push(extractValue(ctx, 0x5d /* ] */));
         skipVoid(ctx);
         if ((c = ctx.s.charCodeAt(ctx.p++)) === 0x5d /* ] */) {
             return res;
         }
-        if (c !== 0x2c /* , */) {
-            throw new TomlError('expected comma or end of structure', { toml: ctx.s, ptr: ctx.p - 1 });
-        }
+        if (c !== 0x2c /* , */)
+            TomlError.x('expected comma or end of structure', ctx, ctx.p - 1);
     }
-    throw new TomlError('unfinished array encountered', {
-        toml: ctx.s,
-        ptr: ctx.p,
-    });
+    TomlError.x('unfinished array', ctx, startPtr);
 }
 
 /*!
@@ -30532,7 +30652,7 @@ function parseArray(ctx, integersAsBigInt) {
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-function peekTable(key, table, meta, type) {
+function peekTable(ctx, key, table, meta, type) {
     let t = table;
     let m = meta;
     let k;
@@ -30540,7 +30660,7 @@ function peekTable(key, table, meta, type) {
     let state;
     for (let i = 0; i < key.length; i++) {
         if (i) {
-            t = hasOwn ? t[k] : (t[k] = {});
+            t = hasOwn ? t[k] : (t[k] = Object.create(null));
             m = (state = m[k]).c;
             if (type === 0 /* Type.DOTTED */ && (state.t === 1 /* Type.EXPLICIT */ || state.t === 2 /* Type.ARRAY */)) {
                 return null;
@@ -30556,7 +30676,10 @@ function peekTable(key, table, meta, type) {
             return null;
         }
         if (!hasOwn) {
-            if (k === '__proto__') {
+            let unsafe = k === '__proto__';
+            if (ctx.uk && (unsafe || k === 'constructor'))
+                return false;
+            if (unsafe) {
                 Object.defineProperty(t, k, { enumerable: true, configurable: true, writable: true });
                 Object.defineProperty(m, k, { enumerable: true, configurable: true, writable: true });
             }
@@ -30565,7 +30688,7 @@ function peekTable(key, table, meta, type) {
                     ? 3 /* Type.ARRAY_DOTTED */ : type,
                 d: false,
                 i: 0,
-                c: {},
+                c: Object.create(null),
             };
         }
     }
@@ -30579,8 +30702,8 @@ function peekTable(key, table, meta, type) {
             state.d = true;
             t[k] = [];
         }
-        t[k].push(t = {});
-        state.c[state.i++] = (state = { t: 1 /* Type.EXPLICIT */, d: false, i: 0, c: {} });
+        t[k].push(t = Object.create(null));
+        state.c[state.i++] = (state = { t: 1 /* Type.EXPLICIT */, d: false, i: 0, c: Object.create(null) });
     }
     if (state.d) {
         // Redefining a table!
@@ -30588,739 +30711,785 @@ function peekTable(key, table, meta, type) {
     }
     state.d = true;
     if (type === 1 /* Type.EXPLICIT */) {
-        t = hasOwn ? t[k] : (t[k] = {});
+        t = hasOwn ? t[k] : (t[k] = Object.create(null));
     }
     else if (type === 0 /* Type.DOTTED */ && hasOwn) {
         return null;
     }
     return [k, t, state.c];
 }
-function parse(toml, { maxDepth = 1000, integersAsBigInt } = {}) {
-    let ctx = { s: toml, p: 0, d: maxDepth };
-    let res = {};
-    let meta = {};
+function validateTablePeek(ctx, peek, ptr) {
+    if (peek === null || ctx.uk === 2)
+        TomlError.x(peek === null
+            ? 'trying to redefine an already defined table or value'
+            : 'document contains an unsafe property', ctx, ptr);
+}
+function parse(toml, options = {}) {
+    let ctx = {
+        s: toml,
+        p: 0,
+        d: options.maxDepth ?? 1000,
+        bi: options.integersAsBigInt ?? false,
+        ld: options.useLegacyDate ?? true,
+        uk: options.unsafeKeyBehaviour === 'throw' ? 2 : options.unsafeKeyBehaviour === 'drop' ? 1 : 0,
+    };
+    let res = Object.create(null);
+    let meta = Object.create(null);
     let tmp;
+    let skipping = false;
     let tbl = res;
     let m = meta;
+    // BOM is allowed, skip.
+    // JS is UTF-16, so we have to check for the UTF-16 BOM instead of the UTF-8 BOM sequence!
+    if (toml.charCodeAt(0) === 0xfeff)
+        ctx.p++;
     skipVoid(ctx);
     while (ctx.p < toml.length) {
         if (toml.charCodeAt(ctx.p) === 0x5b /* [ */) {
             let isTableArray = toml.charCodeAt(++ctx.p) === 0x5b; /* [ */
             tmp = ctx.p += +isTableArray;
-            let k = parseKey(ctx, ']');
+            skipping = false;
+            let k = parseKey(ctx, 0x5d /* ] */);
             if (isTableArray) {
-                if (toml.charCodeAt(ctx.p - 1) !== 0x5d /* ] */) {
-                    throw new TomlError('expected end of table declaration', {
-                        toml: toml,
-                        ptr: ctx.p - 1,
-                    });
+                if (toml.charCodeAt(ctx.p) !== 0x5d /* ] */) {
+                    TomlError.x('expected end of table array declaration', ctx);
                 }
                 ctx.p++;
             }
-            let p = peekTable(k, res, meta, isTableArray ? 2 /* Type.ARRAY */ : 1 /* Type.EXPLICIT */);
+            let p = peekTable(ctx, k, res, meta, isTableArray ? 2 /* Type.ARRAY */ : 1 /* Type.EXPLICIT */);
             if (!p) {
-                throw new TomlError('trying to redefine an already defined table or value', {
-                    toml: toml,
-                    ptr: tmp,
-                });
+                validateTablePeek(ctx, p, tmp);
+                skipping = true;
             }
-            m = p[2];
-            tbl = p[1];
+            else {
+                m = p[2];
+                tbl = p[1];
+            }
         }
         else {
             tmp = ctx.p;
             let k = parseKey(ctx);
-            let p = peekTable(k, tbl, m, 0 /* Type.DOTTED */);
-            if (!p) {
-                throw new TomlError('trying to redefine an already defined table or value', {
-                    toml: toml,
-                    ptr: tmp,
-                });
-            }
-            p[1][p[0]] = extractValue(ctx, void 0, integersAsBigInt);
+            let p = peekTable(ctx, k, tbl, m, 0 /* Type.DOTTED */);
+            if (!p && !skipping)
+                validateTablePeek(ctx, p, tmp);
+            skipVoid(ctx, true, true);
+            let v = extractValue(ctx, void 0);
+            if (p && !skipping)
+                p[1][p[0]] = v;
         }
         skipVoid(ctx, true);
-        if (ctx.p < toml.length && (tmp = toml.charCodeAt(ctx.p)) !== 0xa /* \n */ && tmp !== 0xd /* \r */) {
-            throw new TomlError('each key-value declaration must be followed by an end-of-line', {
-                toml: toml,
-                ptr: ctx.p,
-            });
+        if (ctx.p < toml.length && (tmp = toml.charCodeAt(ctx.p)) !== 0xa /* \n */ && (tmp !== 0xd /* \r */ || toml.charCodeAt(ctx.p + 1) !== 0xa /* \n */)) {
+            TomlError.x('each key-value declaration must be followed by an end-of-line', ctx);
         }
         skipVoid(ctx);
     }
     return res;
 }
 
+function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /** Normalises things like `v1.2.3`, `"1.2.3"`, `== 1.2.3` into `1.2.3`. Returns empty string for empty input. */
 function cleanVersion(raw) {
-    if (!raw)
-        return '';
-    let v = raw.trim();
-    v = v.replace(/^["']|["']$/g, '').trim();
-    v = v.replace(/^==\s*/, '');
-    v = v.replace(/^v(?=\d)/i, '');
-    return v;
+  if (!raw) return ''
+  let v = raw.trim();
+  v = v.replace(/^["']|["']$/g, '').trim();
+  v = v.replace(/^==\s*/, '');
+  v = v.replace(/^v(?=\d)/i, '');
+  return v
 }
+
 /** Extracts `__version__ = "1.2.3"` / `Version = "1.2.3"` style assignments from source code. */
 function extractAssignedVersion(source, identifiers) {
-    for (const id of identifiers) {
-        const re = new RegExp(`(?:^|[\\s(,])${id}\\s*(?::\\s*(?:str|string))?\\s*=\\s*["'\`]([^"'\`\\n]+)["'\`]`, 'm');
-        const match = re.exec(source);
-        if (match?.[1])
-            return cleanVersion(match[1]);
-    }
-    return undefined;
+  for (const id of identifiers) {
+    const re = new RegExp(`(?:^|[\\s(,])${id}\\s*(?::\\s*(?:str|string))?\\s*=\\s*["'\`]([^"'\`\\n]+)["'\`]`, 'm');
+    const match = re.exec(source);
+    if (_optionalChain$4([match, 'optionalAccess', _ => _[1]])) return cleanVersion(match[1])
+  }
+  return undefined
 }
+
 /** Latest reachable git tag (via `git describe`), or undefined when the repo has no tags / is not a repo. */
 async function gitDescribeTag(cwd) {
-    let out = '';
-    try {
-        const code = await exec('git', ['describe', '--tags', '--abbrev=0'], {
-            cwd,
-            silent: true,
-            ignoreReturnCode: true,
-            listeners: { stdout: (d) => (out += d.toString()) },
-        });
-        if (code !== 0)
-            return undefined;
-    }
-    catch {
-        return undefined;
-    }
-    const tag = out.trim();
-    return tag ? cleanVersion(tag) : undefined;
+  let out = '';
+  try {
+    const code = await exec('git', ['describe', '--tags', '--abbrev=0'], {
+      cwd,
+      silent: true,
+      ignoreReturnCode: true,
+      listeners: { stdout: (d) => (out += d.toString()) },
+    });
+    if (code !== 0) return undefined
+  } catch (e) {
+    return undefined
+  }
+  const tag = out.trim();
+  return tag ? cleanVersion(tag) : undefined
 }
 
+function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
 /** Runtime names as they appear in `.tool-versions` (asdf) and `mise.toml`. */
 const ASDF_NAMES = {
-    node: ['nodejs', 'node'],
-    python: ['python'],
-    go: ['golang', 'go'],
+  node: ['nodejs', 'node'],
+  python: ['python'],
+  go: ['golang', 'go'],
 };
+
 /** Looks up a runtime version in asdf's `.tool-versions`. */
 async function toolVersionsRuntime(dir, runtime) {
-    const text = await readText(path$1.join(dir, '.tool-versions'));
-    if (!text)
-        return undefined;
-    const names = ASDF_NAMES[runtime] ?? [];
-    for (const line of text.split(/\r?\n/)) {
-        const trimmed = line.replace(/#.*$/, '').trim();
-        if (!trimmed)
-            continue;
-        const [name, ...versions] = trimmed.split(/\s+/);
-        if (name && names.includes(name) && versions[0])
-            return cleanVersion(versions[0]);
-    }
-    return undefined;
-}
-/** Looks up a runtime version in `mise.toml` / `.mise.toml` (`[tools]` table). */
-async function miseRuntime(dir, runtime) {
-    for (const file of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
-        const text = await readText(path$1.join(dir, file));
-        if (!text)
-            continue;
-        let parsed;
-        try {
-            parsed = parse(text);
-        }
-        catch {
-            continue;
-        }
-        const tools = parsed['tools'];
-        if (!tools || typeof tools !== 'object')
-            continue;
-        for (const name of ASDF_NAMES[runtime] ?? []) {
-            const value = tools[name];
-            if (typeof value === 'string')
-                return cleanVersion(value);
-            if (Array.isArray(value) && typeof value[0] === 'string')
-                return cleanVersion(value[0]);
-            if (value && typeof value === 'object' && typeof value.version === 'string') {
-                return cleanVersion(value.version);
-            }
-        }
-    }
-    return undefined;
-}
-/** Reads a single-line version file such as `.nvmrc` or `.python-version`. */
-async function versionFileRuntime(dir, files) {
-    for (const file of files) {
-        const value = await readVersionFile(path$1.join(dir, file));
-        if (value)
-            return cleanVersion(value);
-    }
-    return undefined;
+  const text = await readText(path$1.join(dir, '.tool-versions'));
+  if (!text) return undefined
+  const names = _nullishCoalesce$4(ASDF_NAMES[runtime], () => ( []));
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.replace(/#.*$/, '').trim();
+    if (!trimmed) continue
+    const [name, ...versions] = trimmed.split(/\s+/);
+    if (name && names.includes(name) && versions[0]) return cleanVersion(versions[0])
+  }
+  return undefined
 }
 
+/** Looks up a runtime version in `mise.toml` / `.mise.toml` (`[tools]` table). */
+async function miseRuntime(dir, runtime) {
+  for (const file of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
+    const text = await readText(path$1.join(dir, file));
+    if (!text) continue
+    let parsed;
+    try {
+      parsed = parse(text); 
+    } catch (e) {
+      continue
+    }
+    const tools = parsed['tools'];
+    if (!tools || typeof tools !== 'object') continue
+    for (const name of _nullishCoalesce$4(ASDF_NAMES[runtime], () => ( []))) {
+      const value = (tools )[name];
+      if (typeof value === 'string') return cleanVersion(value)
+      if (Array.isArray(value) && typeof value[0] === 'string') return cleanVersion(value[0])
+      if (value && typeof value === 'object' && typeof (value ).version === 'string') {
+        return cleanVersion((value ).version)
+      }
+    }
+  }
+  return undefined
+}
+
+/** Reads a single-line version file such as `.nvmrc` or `.python-version`. */
+async function versionFileRuntime(dir, files) {
+  for (const file of files) {
+    const value = await readVersionFile(path$1.join(dir, file));
+    if (value) return cleanVersion(value)
+  }
+  return undefined
+}
+
+function _nullishCoalesce$3(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } }
 const VERSION_FILES$1 = ['VERSION', 'VERSION.txt', 'version.txt'];
+
 /** Conventional locations of a `Version` constant, checked before falling back to a directory walk. */
 const VERSION_GO_CANDIDATES = [
-    'version.go',
-    'version/version.go',
-    'internal/version/version.go',
-    'pkg/version/version.go',
-    'internal/build/version.go',
-    'cmd/version.go',
+  'version.go',
+  'version/version.go',
+  'internal/version/version.go',
+  'pkg/version/version.go',
+  'internal/build/version.go',
+  'cmd/version.go',
 ];
+
+
+
+
+
+
+
 function parseGoMod(text) {
-    const result = { module: '', go: '', toolchain: '' };
-    for (const rawLine of text.split(/\r?\n/)) {
-        const line = rawLine.replace(/\/\/.*$/, '').trim();
-        let match;
-        if ((match = /^module\s+("?)(\S+?)\1$/.exec(line)))
-            result.module ||= match[2] ?? '';
-        else if ((match = /^go\s+(\S+)$/.exec(line)))
-            result.go ||= match[1] ?? '';
-        else if ((match = /^toolchain\s+go(\S+)$/.exec(line)))
-            result.toolchain ||= match[1] ?? '';
-    }
-    return result;
+  const result = { module: '', go: '', toolchain: '' };
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/\/\/.*$/, '').trim();
+    let match;
+    if ((match = /^module\s+("?)(\S+?)\1$/.exec(line))) result.module ||= _nullishCoalesce$3(match[2], () => ( ''));
+    else if ((match = /^go\s+(\S+)$/.exec(line))) result.go ||= _nullishCoalesce$3(match[1], () => ( ''));
+    else if ((match = /^toolchain\s+go(\S+)$/.exec(line))) result.toolchain ||= _nullishCoalesce$3(match[1], () => ( ''));
+  }
+  return result
 }
+
 /** `var Version = "dev"` is an ldflags placeholder, not a version — only accept values containing a digit. */
 function looksLikeVersion(value) {
-    return !!value && /\d/.test(value);
+  return !!value && /\d/.test(value)
 }
+
 async function versionFromGoSource(dir) {
-    const identifiers = ['Version', 'version', 'AppVersion', 'BuildVersion', 'VERSION'];
-    const tryFile = async (file) => {
-        const source = await readText(path$1.join(dir, file));
-        if (source === undefined)
-            return undefined;
-        const v = extractAssignedVersion(source, identifiers);
-        return looksLikeVersion(v) ? { version: v, source: file } : undefined;
-    };
-    for (const candidate of VERSION_GO_CANDIDATES) {
-        const hit = await tryFile(candidate);
-        if (hit)
-            return hit;
-    }
-    const files = (await walkFiles(dir, { maxDepth: 3 })).filter((f) => f.endsWith('.go') && !f.endsWith('_test.go') && /version/i.test(f));
-    files.sort((a, b) => a.split(path$1.sep).length - b.split(path$1.sep).length || a.localeCompare(b));
-    for (const file of files) {
-        const hit = await tryFile(file);
-        if (hit)
-            return hit;
-    }
-    return undefined;
+  const identifiers = ['Version', 'version', 'AppVersion', 'BuildVersion', 'VERSION'];
+  const tryFile = async (file) => {
+    const source = await readText(path$1.join(dir, file));
+    if (source === undefined) return undefined
+    const v = extractAssignedVersion(source, identifiers);
+    return looksLikeVersion(v) ? { version: v, source: file } : undefined
+  };
+
+  for (const candidate of VERSION_GO_CANDIDATES) {
+    const hit = await tryFile(candidate);
+    if (hit) return hit
+  }
+
+  const files = (await walkFiles(dir, { maxDepth: 3 })).filter(
+    (f) => f.endsWith('.go') && !f.endsWith('_test.go') && /version/i.test(f),
+  );
+  files.sort((a, b) => a.split(path$1.sep).length - b.split(path$1.sep).length || a.localeCompare(b));
+  for (const file of files) {
+    const hit = await tryFile(file);
+    if (hit) return hit
+  }
+  return undefined
 }
+
 const goDetector = {
-    language: 'go',
-    async detect({ dir }) {
-        const manifest = await firstExisting(dir, ['go.mod', 'go.work', 'Gopkg.toml']);
-        if (!manifest)
-            return undefined;
-        const isDep = manifest === 'Gopkg.toml';
-        const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod((await readText(path$1.join(dir, manifest))) ?? '');
-        const lockfile = isDep
-            ? (await isFile(path$1.join(dir, 'Gopkg.lock'))) ? 'Gopkg.lock' : ''
-            : (await firstExisting(dir, ['go.sum', 'go.work.sum'])) ?? '';
-        let version = '';
-        let versionSource = '';
-        const versionFile = await firstExisting(dir, VERSION_FILES$1);
-        if (versionFile) {
-            const v = cleanVersion(await readVersionFile(path$1.join(dir, versionFile)));
-            if (v) {
-                version = v;
-                versionSource = versionFile;
-            }
-        }
-        if (!version) {
-            const fromSource = await versionFromGoSource(dir);
-            if (fromSource)
-                ({ version, source: versionSource } = fromSource);
-        }
-        if (!version) {
-            // Go modules are versioned by git tags, so this is the canonical last resort.
-            const tag = await gitDescribeTag(dir);
-            if (tag) {
-                version = tag;
-                versionSource = 'git-tag';
-            }
-        }
-        const languageVersion = goMod.go || goMod.toolchain || (await toolVersionsRuntime(dir, 'go')) || (await miseRuntime(dir, 'go')) || '';
-        return {
-            language: 'go',
-            name: goMod.module,
-            version,
-            versionSource,
-            packageManager: isDep ? 'dep' : 'go',
-            packageManagerVersion: goMod.toolchain,
-            languageVersion,
-            manifest,
-            lockfile,
-        };
-    },
+  language: 'go',
+  async detect({ dir }) {
+    const manifest = await firstExisting(dir, ['go.mod', 'go.work', 'Gopkg.toml']);
+    if (!manifest) return undefined
+
+    const isDep = manifest === 'Gopkg.toml';
+    const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod(await _asyncNullishCoalesce$2((await readText(path$1.join(dir, manifest))), async () => ( '')));
+
+    const lockfile = isDep
+      ? (await isFile(path$1.join(dir, 'Gopkg.lock'))) ? 'Gopkg.lock' : ''
+      : await _asyncNullishCoalesce$2((await firstExisting(dir, ['go.sum', 'go.work.sum'])), async () => ( ''));
+
+    let version = '';
+    let versionSource = '';
+    const versionFile = await firstExisting(dir, VERSION_FILES$1);
+    if (versionFile) {
+      const v = cleanVersion(await readVersionFile(path$1.join(dir, versionFile)));
+      if (v) {
+        version = v;
+        versionSource = versionFile;
+      }
+    }
+    if (!version) {
+      const fromSource = await versionFromGoSource(dir);
+      if (fromSource) ({ version, source: versionSource } = fromSource);
+    }
+    if (!version) {
+      // Go modules are versioned by git tags, so this is the canonical last resort.
+      const tag = await gitDescribeTag(dir);
+      if (tag) {
+        version = tag;
+        versionSource = 'git-tag';
+      }
+    }
+
+    const languageVersion =
+      goMod.go || goMod.toolchain || (await toolVersionsRuntime(dir, 'go')) || (await miseRuntime(dir, 'go')) || '';
+
+    return {
+      language: 'go',
+      name: goMod.module,
+      version,
+      versionSource,
+      packageManager: isDep ? 'dep' : 'go',
+      packageManagerVersion: goMod.toolchain,
+      languageVersion,
+      manifest,
+      lockfile,
+    }
+  },
 };
+
+async function _asyncNullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+
+
+
+
+
+
+
+
+
+
 
 /** Lockfiles in priority order — the first one found wins. */
 const LOCKFILES$1 = [
-    { file: 'bun.lock', pm: 'bun' },
-    { file: 'bun.lockb', pm: 'bun' },
-    { file: 'pnpm-lock.yaml', pm: 'pnpm' },
-    { file: 'yarn.lock', pm: 'yarn' },
-    { file: 'package-lock.json', pm: 'npm' },
-    { file: 'npm-shrinkwrap.json', pm: 'npm' },
+  { file: 'bun.lock', pm: 'bun' },
+  { file: 'bun.lockb', pm: 'bun' },
+  { file: 'pnpm-lock.yaml', pm: 'pnpm' },
+  { file: 'yarn.lock', pm: 'yarn' },
+  { file: 'package-lock.json', pm: 'npm' },
+  { file: 'npm-shrinkwrap.json', pm: 'npm' },
 ];
+
 const NODE_PMS = ['npm', 'yarn', 'pnpm', 'bun'];
+
 function isNodePm(value) {
-    return NODE_PMS.includes(value);
+  return (NODE_PMS ).includes(value)
 }
+
 /** Parses the `packageManager` field (`pnpm@9.1.0+sha512...`) into name and version. */
 function parsePackageManagerField(value) {
-    if (typeof value !== 'string')
-        return undefined;
-    const match = /^([a-z]+)@([^+\s]+)/.exec(value.trim());
-    if (!match)
-        return undefined;
-    const [, name, version] = match;
-    if (!name || !isNodePm(name))
-        return undefined;
-    return { pm: name, version: cleanVersion(version) };
+  if (typeof value !== 'string') return undefined
+  const match = /^([a-z]+)@([^+\s]+)/.exec(value.trim());
+  if (!match) return undefined
+  const [, name, version] = match;
+  if (!name || !isNodePm(name)) return undefined
+  return { pm: name, version: cleanVersion(version) }
 }
+
 /** Yarn Berry pins its own binary in `.yarnrc.yml` (`yarnPath: .yarn/releases/yarn-3.6.4.cjs`). */
 async function yarnVersionFromRc(dir) {
-    const rc = await readText(path$1.join(dir, '.yarnrc.yml'));
-    if (!rc)
-        return undefined;
-    const match = /^\s*yarnPath:\s*["']?.*yarn-(\d+\.\d+\.\d+[^"'\s/]*)\.c?js["']?\s*$/m.exec(rc);
-    return match?.[1];
+  const rc = await readText(path$1.join(dir, '.yarnrc.yml'));
+  if (!rc) return undefined
+  const match = /^\s*yarnPath:\s*["']?.*yarn-(\d+\.\d+\.\d+[^"'\s/]*)\.c?js["']?\s*$/m.exec(rc);
+  return _optionalChain$3([match, 'optionalAccess', _ => _[1]])
 }
+
 async function nodeVersion(dir, pkg) {
-    const fromFile = await versionFileRuntime(dir, ['.nvmrc', '.node-version']);
-    if (fromFile)
-        return fromFile;
-    const volta = pkg.volta?.['node'];
-    if (typeof volta === 'string')
-        return cleanVersion(volta);
-    const engines = pkg.engines?.['node'];
-    if (typeof engines === 'string')
-        return engines.trim();
-    return (await toolVersionsRuntime(dir, 'node')) ?? (await miseRuntime(dir, 'node')) ?? '';
+  const fromFile = await versionFileRuntime(dir, ['.nvmrc', '.node-version']);
+  if (fromFile) return fromFile
+  const volta = _optionalChain$3([pkg, 'access', _2 => _2.volta, 'optionalAccess', _3 => _3['node']]);
+  if (typeof volta === 'string') return cleanVersion(volta)
+  const engines = _optionalChain$3([pkg, 'access', _4 => _4.engines, 'optionalAccess', _5 => _5['node']]);
+  if (typeof engines === 'string') return engines.trim()
+  return await _asyncNullishCoalesce$1(await _asyncNullishCoalesce$1((await toolVersionsRuntime(dir, 'node')), async () => ( (await miseRuntime(dir, 'node')))), async () => ( ''))
 }
+
 const nodeDetector = {
-    language: 'node',
-    async detect({ dir }) {
-        const manifest = 'package.json';
-        if (!(await isFile(path$1.join(dir, manifest))))
-            return undefined;
-        const pkg = (await readJson(path$1.join(dir, manifest))) ?? {};
-        let packageManager;
-        let packageManagerVersion = '';
-        // 1. Explicit `packageManager` field (corepack) — the most authoritative source.
-        const explicit = parsePackageManagerField(pkg.packageManager);
-        if (explicit) {
-            packageManager = explicit.pm;
-            packageManagerVersion = explicit.version;
+  language: 'node',
+  async detect({ dir }) {
+    const manifest = 'package.json';
+    if (!(await isFile(path$1.join(dir, manifest)))) return undefined
+    const pkg = await _asyncNullishCoalesce$1((await readJson(path$1.join(dir, manifest))), async () => ( {}));
+
+    let packageManager;
+    let packageManagerVersion = '';
+
+    // 1. Explicit `packageManager` field (corepack) — the most authoritative source.
+    const explicit = parsePackageManagerField(pkg.packageManager);
+    if (explicit) {
+      packageManager = explicit.pm;
+      packageManagerVersion = explicit.version;
+    }
+
+    // 2. `devEngines.packageManager` (npm 10.9+ / Node 22 devEngines proposal).
+    if (!packageManager) {
+      const devEngine = _optionalChain$3([pkg, 'access', _6 => _6.devEngines, 'optionalAccess', _7 => _7.packageManager]);
+      const candidate = Array.isArray(devEngine) ? devEngine[0] : devEngine;
+      if (candidate && typeof candidate === 'object') {
+        const { name, version } = candidate; 
+        if (typeof name === 'string' && isNodePm(name)) {
+          packageManager = name;
+          if (typeof version === 'string') packageManagerVersion = version.trim();
         }
-        // 2. `devEngines.packageManager` (npm 10.9+ / Node 22 devEngines proposal).
-        if (!packageManager) {
-            const devEngine = pkg.devEngines?.packageManager;
-            const candidate = Array.isArray(devEngine) ? devEngine[0] : devEngine;
-            if (candidate && typeof candidate === 'object') {
-                const { name, version } = candidate;
-                if (typeof name === 'string' && isNodePm(name)) {
-                    packageManager = name;
-                    if (typeof version === 'string')
-                        packageManagerVersion = version.trim();
-                }
-            }
+      }
+    }
+
+    // 3. Lockfile.
+    const lockfile = await _asyncNullishCoalesce$1((await firstExisting(dir, LOCKFILES$1.map((l) => l.file))), async () => ( ''));
+    if (!packageManager && lockfile) {
+      packageManager = _optionalChain$3([LOCKFILES$1, 'access', _8 => _8.find, 'call', _9 => _9((l) => l.file === lockfile), 'optionalAccess', _10 => _10.pm]);
+    }
+
+    // 4. `volta` / `engines` entries naming a package manager.
+    if (!packageManager) {
+      for (const source of [pkg.volta, pkg.engines]) {
+        const hit = NODE_PMS.find((pm) => typeof _optionalChain$3([source, 'optionalAccess', _11 => _11[pm]]) === 'string');
+        if (hit) {
+          packageManager = hit;
+          break
         }
-        // 3. Lockfile.
-        const lockfile = (await firstExisting(dir, LOCKFILES$1.map((l) => l.file))) ?? '';
-        if (!packageManager && lockfile) {
-            packageManager = LOCKFILES$1.find((l) => l.file === lockfile)?.pm;
-        }
-        // 4. `volta` / `engines` entries naming a package manager.
-        if (!packageManager) {
-            for (const source of [pkg.volta, pkg.engines]) {
-                const hit = NODE_PMS.find((pm) => typeof source?.[pm] === 'string');
-                if (hit) {
-                    packageManager = hit;
-                    break;
-                }
-            }
-        }
-        // 5. Default.
-        packageManager ??= 'npm';
-        // Fill in the package manager version from secondary sources when it is still unknown.
-        if (!packageManagerVersion) {
-            const volta = pkg.volta?.[packageManager];
-            const engines = pkg.engines?.[packageManager];
-            if (typeof volta === 'string')
-                packageManagerVersion = cleanVersion(volta);
-            else if (packageManager === 'yarn')
-                packageManagerVersion = (await yarnVersionFromRc(dir)) ?? '';
-            if (!packageManagerVersion && typeof engines === 'string')
-                packageManagerVersion = engines.trim();
-        }
-        const version = typeof pkg.version === 'string' ? cleanVersion(pkg.version) : '';
-        return {
-            language: 'node',
-            name: typeof pkg.name === 'string' ? pkg.name : '',
-            version,
-            versionSource: version ? manifest : '',
-            packageManager,
-            packageManagerVersion,
-            languageVersion: await nodeVersion(dir, pkg),
-            manifest,
-            lockfile,
-        };
-    },
+      }
+    }
+
+    // 5. Default.
+    packageManager ??= 'npm';
+
+    // Fill in the package manager version from secondary sources when it is still unknown.
+    if (!packageManagerVersion) {
+      const volta = _optionalChain$3([pkg, 'access', _12 => _12.volta, 'optionalAccess', _13 => _13[packageManager]]);
+      const engines = _optionalChain$3([pkg, 'access', _14 => _14.engines, 'optionalAccess', _15 => _15[packageManager]]);
+      if (typeof volta === 'string') packageManagerVersion = cleanVersion(volta);
+      else if (packageManager === 'yarn') packageManagerVersion = await _asyncNullishCoalesce$1((await yarnVersionFromRc(dir)), async () => ( ''));
+      if (!packageManagerVersion && typeof engines === 'string') packageManagerVersion = engines.trim();
+    }
+
+    const version = typeof pkg.version === 'string' ? cleanVersion(pkg.version) : '';
+
+    return {
+      language: 'node',
+      name: typeof pkg.name === 'string' ? pkg.name : '',
+      version,
+      versionSource: version ? manifest : '',
+      packageManager,
+      packageManagerVersion,
+      languageVersion: await nodeVersion(dir, pkg),
+      manifest,
+      lockfile,
+    }
+  },
 };
 
-/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
+function _nullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
 function parseIni(text) {
-    const result = {};
-    let section;
-    let lastKey;
-    for (const rawLine of text.split(/\r?\n/)) {
-        if (/^\s*[#;]/.test(rawLine) || rawLine.trim() === '')
-            continue;
-        const sectionMatch = /^\s*\[([^\]]+)\]\s*$/.exec(rawLine);
-        if (sectionMatch?.[1]) {
-            section = result[sectionMatch[1].trim()] ??= {};
-            lastKey = undefined;
-            continue;
-        }
-        if (!section)
-            continue;
-        if (/^\s/.test(rawLine) && lastKey !== undefined) {
-            // continuation line of a multi-line value
-            section[lastKey] = `${section[lastKey] ?? ''}\n${rawLine.trim()}`.trim();
-            continue;
-        }
-        const kv = /^([^=:]+?)\s*[=:]\s*(.*)$/.exec(rawLine);
-        if (kv?.[1] !== undefined) {
-            lastKey = kv[1].trim();
-            section[lastKey] = (kv[2] ?? '').trim();
-        }
+  const result = {};
+  let section;
+  let lastKey;
+  for (const rawLine of text.split(/\r?\n/)) {
+    if (/^\s*[#;]/.test(rawLine) || rawLine.trim() === '') continue
+    const sectionMatch = /^\s*\[([^\]]+)\]\s*$/.exec(rawLine);
+    if (_optionalChain$2([sectionMatch, 'optionalAccess', _ => _[1]])) {
+      section = result[sectionMatch[1].trim()] ??= {};
+      lastKey = undefined;
+      continue
     }
-    return result;
+    if (!section) continue
+    if (/^\s/.test(rawLine) && lastKey !== undefined) {
+      // continuation line of a multi-line value
+      section[lastKey] = `${_nullishCoalesce$2(section[lastKey], () => ( ''))}\n${rawLine.trim()}`.trim();
+      continue
+    }
+    const kv = /^([^=:]+?)\s*[=:]\s*(.*)$/.exec(rawLine);
+    if (_optionalChain$2([kv, 'optionalAccess', _2 => _2[1]]) !== undefined) {
+      lastKey = kv[1].trim();
+      section[lastKey] = (_nullishCoalesce$2(kv[2], () => ( ''))).trim();
+    }
+  }
+  return result
 }
 
-const MANIFESTS = ['pyproject.toml', 'setup.cfg', 'setup.py', 'Pipfile', 'requirements.txt'];
+function _nullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+
+
+
+
+const MANIFESTS = ['pyproject.toml', 'setup.cfg', 'setup.py', 'Pipfile', 'requirements.txt']; 
+
 /** Lockfiles in priority order — the first one found wins. */
 const LOCKFILES = [
-    { file: 'uv.lock', pm: 'uv' },
-    { file: 'poetry.lock', pm: 'poetry' },
-    { file: 'pdm.lock', pm: 'pdm' },
-    { file: 'Pipfile.lock', pm: 'pipenv' },
+  { file: 'uv.lock', pm: 'uv' },
+  { file: 'poetry.lock', pm: 'poetry' },
+  { file: 'pdm.lock', pm: 'pdm' },
+  { file: 'Pipfile.lock', pm: 'pipenv' },
 ];
+
 const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt'];
+
 function table(value) {
-    return value && typeof value === 'object' && !Array.isArray(value) ? value : undefined;
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value ) : undefined
 }
+
 function str(value) {
-    return typeof value === 'string' ? value : undefined;
+  return typeof value === 'string' ? value : undefined
 }
+
 function get(root, ...keys) {
-    let current = root;
-    for (const key of keys) {
-        current = table(current)?.[key];
-        if (current === undefined)
-            return undefined;
-    }
-    return current;
+  let current = root;
+  for (const key of keys) {
+    current = _optionalChain$1([table, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
+    if (current === undefined) return undefined
+  }
+  return current
 }
+
+
+
+
+
+
+
+
 async function readPyproject(dir) {
-    const text = await readText(path$1.join(dir, 'pyproject.toml'));
-    if (text === undefined)
-        return undefined;
-    let raw;
-    try {
-        raw = parse(text);
-    }
-    catch {
-        raw = {};
-    }
-    return {
-        raw,
-        project: table(raw['project']),
-        tool: table(raw['tool']),
-        buildSystem: table(raw['build-system']),
-    };
+  const text = await readText(path$1.join(dir, 'pyproject.toml'));
+  if (text === undefined) return undefined
+  let raw;
+  try {
+    raw = parse(text); 
+  } catch (e) {
+    raw = {};
+  }
+  return {
+    raw,
+    project: table(raw['project']),
+    tool: table(raw['tool']),
+    buildSystem: table(raw['build-system']),
+  }
 }
+
 /** Resolves `pkg.sub.__version__` (setuptools `attr:`) to the file that defines it and reads the version. */
 async function versionFromAttr(dir, attr, pyproject) {
-    const parts = attr.split('.');
-    const identifier = parts.pop();
-    if (!identifier || parts.length === 0)
-        return undefined;
-    const modulePath = parts.join('/');
-    const roots = ['', 'src'];
-    const packageDir = table(get(pyproject?.tool, 'setuptools', 'package-dir'));
-    const mappedRoot = str(packageDir?.['']);
-    if (mappedRoot)
-        roots.unshift(mappedRoot);
-    for (const root of roots) {
-        for (const candidate of [`${modulePath}.py`, `${modulePath}/__init__.py`]) {
-            const source = await readText(path$1.join(dir, root, candidate));
-            if (source === undefined)
-                continue;
-            const found = extractAssignedVersion(source, [identifier]);
-            if (found)
-                return found;
-        }
+  const parts = attr.split('.');
+  const identifier = parts.pop();
+  if (!identifier || parts.length === 0) return undefined
+  const modulePath = parts.join('/');
+  const roots = ['', 'src'];
+  const packageDir = table(get(_optionalChain$1([pyproject, 'optionalAccess', _3 => _3.tool]), 'setuptools', 'package-dir'));
+  const mappedRoot = str(_optionalChain$1([packageDir, 'optionalAccess', _4 => _4['']]));
+  if (mappedRoot) roots.unshift(mappedRoot);
+  for (const root of roots) {
+    for (const candidate of [`${modulePath}.py`, `${modulePath}/__init__.py`]) {
+      const source = await readText(path$1.join(dir, root, candidate));
+      if (source === undefined) continue
+      const found = extractAssignedVersion(source, [identifier]);
+      if (found) return found
     }
-    return undefined;
+  }
+  return undefined
 }
+
 async function versionFromFileSetting(dir, file) {
-    const files = Array.isArray(file) ? file.filter((f) => typeof f === 'string') : str(file) ? [file] : [];
-    for (const f of files) {
-        const value = await readVersionFile(path$1.join(dir, f));
-        if (value)
-            return cleanVersion(value);
-    }
-    return undefined;
+  const files = Array.isArray(file) ? file.filter((f) => typeof f === 'string') : str(file) ? [file ] : [];
+  for (const f of files) {
+    const value = await readVersionFile(path$1.join(dir, f));
+    if (value) return cleanVersion(value)
+  }
+  return undefined
 }
+
 /** Handles `[project] dynamic = ["version"]` by inspecting the build backend's configuration. */
-async function dynamicVersion(dir, pyproject) {
-    const tool = pyproject.tool;
-    // setuptools: [tool.setuptools.dynamic] version = {attr = "pkg.__version__"} | {file = "VERSION"}
-    const setuptoolsDynamic = table(get(tool, 'setuptools', 'dynamic', 'version'));
-    if (setuptoolsDynamic) {
-        const attr = str(setuptoolsDynamic['attr']);
-        if (attr) {
-            const v = await versionFromAttr(dir, attr, pyproject);
-            if (v)
-                return { version: v, source: `pyproject.toml:tool.setuptools.dynamic (${attr})` };
-        }
-        const v = await versionFromFileSetting(dir, setuptoolsDynamic['file']);
-        if (v)
-            return { version: v, source: 'pyproject.toml:tool.setuptools.dynamic (file)' };
+async function dynamicVersion(
+  dir,
+  pyproject,
+) {
+  const tool = pyproject.tool;
+
+  // setuptools: [tool.setuptools.dynamic] version = {attr = "pkg.__version__"} | {file = "VERSION"}
+  const setuptoolsDynamic = table(get(tool, 'setuptools', 'dynamic', 'version'));
+  if (setuptoolsDynamic) {
+    const attr = str(setuptoolsDynamic['attr']);
+    if (attr) {
+      const v = await versionFromAttr(dir, attr, pyproject);
+      if (v) return { version: v, source: `pyproject.toml:tool.setuptools.dynamic (${attr})` }
     }
-    // hatch: [tool.hatch.version] path = "src/pkg/__about__.py" (source = "vcs" → git)
-    const hatchVersion = table(get(tool, 'hatch', 'version'));
-    if (hatchVersion) {
-        const file = str(hatchVersion['path']);
-        if (file) {
-            const source = await readText(path$1.join(dir, file));
-            const v = source !== undefined ? extractAssignedVersion(source, ['__version__', 'VERSION', 'version']) : undefined;
-            if (v)
-                return { version: v, source: file };
-        }
+    const v = await versionFromFileSetting(dir, setuptoolsDynamic['file']);
+    if (v) return { version: v, source: 'pyproject.toml:tool.setuptools.dynamic (file)' }
+  }
+
+  // hatch: [tool.hatch.version] path = "src/pkg/__about__.py" (source = "vcs" → git)
+  const hatchVersion = table(get(tool, 'hatch', 'version'));
+  if (hatchVersion) {
+    const file = str(hatchVersion['path']);
+    if (file) {
+      const source = await readText(path$1.join(dir, file));
+      const v = source !== undefined ? extractAssignedVersion(source, ['__version__', 'VERSION', 'version']) : undefined;
+      if (v) return { version: v, source: file }
     }
-    // pdm: [tool.pdm.version] source = "file", path = "pkg/__init__.py" (source = "scm" → git)
-    const pdmVersion = table(get(tool, 'pdm', 'version'));
-    if (pdmVersion && str(pdmVersion['source']) === 'file') {
-        const file = str(pdmVersion['path']);
-        const source = file ? await readText(path$1.join(dir, file)) : undefined;
-        const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
-        if (v && file)
-            return { version: v, source: file };
-    }
-    // flit: [tool.flit.module] name = "pkg" → reads pkg/__init__.py __version__
-    const flitModule = str(get(tool, 'flit', 'module', 'name'));
-    if (flitModule) {
-        const v = await versionFromAttr(dir, `${flitModule}.__version__`, pyproject);
-        if (v)
-            return { version: v, source: `${flitModule}/__init__.py` };
-    }
-    return undefined;
+  }
+
+  // pdm: [tool.pdm.version] source = "file", path = "pkg/__init__.py" (source = "scm" → git)
+  const pdmVersion = table(get(tool, 'pdm', 'version'));
+  if (pdmVersion && str(pdmVersion['source']) === 'file') {
+    const file = str(pdmVersion['path']);
+    const source = file ? await readText(path$1.join(dir, file)) : undefined;
+    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
+    if (v && file) return { version: v, source: file }
+  }
+
+  // flit: [tool.flit.module] name = "pkg" → reads pkg/__init__.py __version__
+  const flitModule = str(get(tool, 'flit', 'module', 'name'));
+  if (flitModule) {
+    const v = await versionFromAttr(dir, `${flitModule}.__version__`, pyproject);
+    if (v) return { version: v, source: `${flitModule}/__init__.py` }
+  }
+
+  return undefined
 }
+
 /** True when the project derives its version from git (setuptools-scm, hatch-vcs, pdm scm, poetry-dynamic-versioning). */
 function usesScmVersioning(pyproject) {
-    if (!pyproject)
-        return false;
-    const tool = pyproject.tool;
-    if (get(tool, 'setuptools_scm') !== undefined)
-        return true;
-    if (get(tool, 'poetry-dynamic-versioning') !== undefined)
-        return true;
-    if (str(get(tool, 'hatch', 'version', 'source')) === 'vcs')
-        return true;
-    if (str(get(tool, 'pdm', 'version', 'source')) === 'scm')
-        return true;
-    const requires = pyproject.buildSystem?.['requires'];
-    if (Array.isArray(requires)) {
-        return requires.some((r) => typeof r === 'string' && /^(setuptools[-_]scm|hatch-vcs|versioningit)\b/i.test(r));
-    }
-    return false;
+  if (!pyproject) return false
+  const tool = pyproject.tool;
+  if (get(tool, 'setuptools_scm') !== undefined) return true
+  if (get(tool, 'poetry-dynamic-versioning') !== undefined) return true
+  if (str(get(tool, 'hatch', 'version', 'source')) === 'vcs') return true
+  if (str(get(tool, 'pdm', 'version', 'source')) === 'scm') return true
+  const requires = _optionalChain$1([pyproject, 'access', _5 => _5.buildSystem, 'optionalAccess', _6 => _6['requires']]);
+  if (Array.isArray(requires)) {
+    return requires.some((r) => typeof r === 'string' && /^(setuptools[-_]scm|hatch-vcs|versioningit)\b/i.test(r))
+  }
+  return false
 }
+
 /** Scans conventional locations (`pkg/__init__.py`, `src/pkg/_version.py`, ...) for a `__version__` assignment. */
 async function scanForDunderVersion(dir, projectName) {
-    const moduleNames = projectName ? [projectName.replace(/-/g, '_').toLowerCase(), projectName.toLowerCase()] : [];
-    const fileNames = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py'];
-    const candidates = [];
-    for (const mod of moduleNames) {
-        for (const root of ['src', '']) {
-            for (const file of fileNames)
-                candidates.push(path$1.join(root, mod, file));
-        }
+  const moduleNames = projectName ? [projectName.replace(/-/g, '_').toLowerCase(), projectName.toLowerCase()] : [];
+  const fileNames = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py'];
+  const candidates = [];
+  for (const mod of moduleNames) {
+    for (const root of ['src', '']) {
+      for (const file of fileNames) candidates.push(path$1.join(root, mod, file));
     }
-    for (const candidate of candidates) {
-        const source = await readText(path$1.join(dir, candidate));
-        const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
-        if (v)
-            return { version: v, source: candidate };
-    }
-    // Generic fallback: shallow walk for any version-ish module.
-    const files = (await walkFiles(dir, { maxDepth: 3 })).filter((f) => fileNames.includes(path$1.basename(f)));
-    files.sort((a, b) => a.split(path$1.sep).length - b.split(path$1.sep).length || a.localeCompare(b));
-    for (const file of files) {
-        const source = await readText(path$1.join(dir, file));
-        const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
-        if (v)
-            return { version: v, source: file };
-    }
-    return undefined;
+  }
+  for (const candidate of candidates) {
+    const source = await readText(path$1.join(dir, candidate));
+    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
+    if (v) return { version: v, source: candidate }
+  }
+  // Generic fallback: shallow walk for any version-ish module.
+  const files = (await walkFiles(dir, { maxDepth: 3 })).filter((f) => fileNames.includes(path$1.basename(f)));
+  files.sort((a, b) => a.split(path$1.sep).length - b.split(path$1.sep).length || a.localeCompare(b));
+  for (const file of files) {
+    const source = await readText(path$1.join(dir, file));
+    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
+    if (v) return { version: v, source: file }
+  }
+  return undefined
 }
-function detectPackageManager(pyproject, lockfile, manifests) {
-    const tool = pyproject?.tool;
-    const lock = LOCKFILES.find((l) => l.file === lockfile);
-    if (lock)
-        return { pm: lock.pm, version: '' };
-    if (get(tool, 'uv') !== undefined)
-        return { pm: 'uv', version: str(get(tool, 'uv', 'required-version')) ?? '' };
-    if (get(tool, 'poetry') !== undefined)
-        return { pm: 'poetry', version: str(get(tool, 'poetry', 'requires-poetry')) ?? '' };
-    if (get(tool, 'pdm') !== undefined)
-        return { pm: 'pdm', version: '' };
-    if (get(tool, 'hatch', 'envs') !== undefined)
-        return { pm: 'hatch', version: '' };
-    const backend = str(pyproject?.buildSystem?.['build-backend']) ?? '';
-    if (/^poetry(\.core)?\.masonry/.test(backend) || backend === 'poetry.core.masonry.api')
-        return { pm: 'poetry', version: '' };
-    if (/^pdm\./.test(backend))
-        return { pm: 'pdm', version: '' };
-    if (manifests.has('Pipfile'))
-        return { pm: 'pipenv', version: '' };
-    return { pm: 'pip', version: '' };
+
+function detectPackageManager(
+  pyproject,
+  lockfile,
+  manifests,
+) {
+  const tool = _optionalChain$1([pyproject, 'optionalAccess', _7 => _7.tool]);
+
+  const lock = LOCKFILES.find((l) => l.file === lockfile);
+  if (lock) return { pm: lock.pm, version: '' }
+
+  if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: _nullishCoalesce$1(str(get(tool, 'uv', 'required-version')), () => ( '')) }
+  if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: _nullishCoalesce$1(str(get(tool, 'poetry', 'requires-poetry')), () => ( '')) }
+  if (get(tool, 'pdm') !== undefined) return { pm: 'pdm', version: '' }
+  if (get(tool, 'hatch', 'envs') !== undefined) return { pm: 'hatch', version: '' }
+
+  const backend = _nullishCoalesce$1(str(_optionalChain$1([pyproject, 'optionalAccess', _8 => _8.buildSystem, 'optionalAccess', _9 => _9['build-backend']])), () => ( ''));
+  if (/^poetry(\.core)?\.masonry/.test(backend) || backend === 'poetry.core.masonry.api') return { pm: 'poetry', version: '' }
+  if (/^pdm\./.test(backend)) return { pm: 'pdm', version: '' }
+
+  if (manifests.has('Pipfile')) return { pm: 'pipenv', version: '' }
+  return { pm: 'pip', version: '' }
 }
+
 async function poetryLockVersion(dir) {
-    const text = await readText(path$1.join(dir, 'poetry.lock'));
-    const match = text ? /@generated by Poetry (\S+?)(?:\s|$)/.exec(text) : null;
-    return match?.[1] ?? '';
+  const text = await readText(path$1.join(dir, 'poetry.lock'));
+  const match = text ? /@generated by Poetry (\S+?)(?:\s|$)/.exec(text) : null;
+  return _nullishCoalesce$1(_optionalChain$1([match, 'optionalAccess', _10 => _10[1]]), () => ( ''))
 }
+
 async function pythonVersion(dir, pyproject, setupCfg) {
-    const fromFile = await versionFileRuntime(dir, ['.python-version']);
-    if (fromFile)
-        return fromFile;
-    const requiresPython = str(pyproject?.project?.['requires-python']);
-    if (requiresPython)
-        return requiresPython.trim();
-    const poetryPython = get(pyproject?.tool, 'poetry', 'dependencies', 'python');
-    if (typeof poetryPython === 'string')
-        return poetryPython.trim();
-    const pipfile = await readText(path$1.join(dir, 'Pipfile'));
-    if (pipfile) {
-        try {
-            const requires = table(parse(pipfile)['requires']);
-            const v = str(requires?.['python_full_version']) ?? str(requires?.['python_version']);
-            if (v)
-                return v;
-        }
-        catch {
-            // ignore malformed Pipfile
-        }
+  const fromFile = await versionFileRuntime(dir, ['.python-version']);
+  if (fromFile) return fromFile
+
+  const requiresPython = str(_optionalChain$1([pyproject, 'optionalAccess', _11 => _11.project, 'optionalAccess', _12 => _12['requires-python']]));
+  if (requiresPython) return requiresPython.trim()
+
+  const poetryPython = get(_optionalChain$1([pyproject, 'optionalAccess', _13 => _13.tool]), 'poetry', 'dependencies', 'python');
+  if (typeof poetryPython === 'string') return poetryPython.trim()
+
+  const pipfile = await readText(path$1.join(dir, 'Pipfile'));
+  if (pipfile) {
+    try {
+      const requires = table((parse(pipfile) )['requires']);
+      const v = _nullishCoalesce$1(str(_optionalChain$1([requires, 'optionalAccess', _14 => _14['python_full_version']])), () => ( str(_optionalChain$1([requires, 'optionalAccess', _15 => _15['python_version']]))));
+      if (v) return v
+    } catch (e2) {
+      // ignore malformed Pipfile
     }
-    const pythonRequires = setupCfg['options']?.['python_requires'];
-    if (pythonRequires)
-        return pythonRequires;
-    const runtimeTxt = await readVersionFile(path$1.join(dir, 'runtime.txt'));
-    const runtimeMatch = runtimeTxt ? /^python-?(.+)$/i.exec(runtimeTxt) : null;
-    if (runtimeMatch?.[1])
-        return runtimeMatch[1];
-    return (await toolVersionsRuntime(dir, 'python')) ?? (await miseRuntime(dir, 'python')) ?? '';
+  }
+
+  const pythonRequires = _optionalChain$1([setupCfg, 'access', _16 => _16['options'], 'optionalAccess', _17 => _17['python_requires']]);
+  if (pythonRequires) return pythonRequires
+
+  const runtimeTxt = await readVersionFile(path$1.join(dir, 'runtime.txt'));
+  const runtimeMatch = runtimeTxt ? /^python-?(.+)$/i.exec(runtimeTxt) : null;
+  if (_optionalChain$1([runtimeMatch, 'optionalAccess', _18 => _18[1]])) return runtimeMatch[1]
+
+  return await _asyncNullishCoalesce(await _asyncNullishCoalesce((await toolVersionsRuntime(dir, 'python')), async () => ( (await miseRuntime(dir, 'python')))), async () => ( ''))
 }
+
 const pythonDetector = {
-    language: 'python',
-    async detect({ dir }) {
-        const present = new Set();
-        for (const m of MANIFESTS)
-            if (await isFile(path$1.join(dir, m)))
-                present.add(m);
-        const manifest = MANIFESTS.find((m) => present.has(m));
-        if (!manifest)
-            return undefined;
-        const pyproject = await readPyproject(dir);
-        const setupCfgText = present.has('setup.cfg') ? await readText(path$1.join(dir, 'setup.cfg')) : undefined;
-        const setupCfg = setupCfgText ? parseIni(setupCfgText) : {};
-        const setupPy = present.has('setup.py') ? await readText(path$1.join(dir, 'setup.py')) : undefined;
-        // --- name ---
-        const name = str(pyproject?.project?.['name']) ??
-            str(get(pyproject?.tool, 'poetry', 'name')) ??
-            setupCfg['metadata']?.['name'] ??
-            (setupPy ? /\bname\s*=\s*["']([^"']+)["']/.exec(setupPy)?.[1] : undefined) ??
-            '';
-        // --- version ---
-        let version = '';
-        let versionSource = '';
-        const setVersion = (v, source) => {
-            if (!v)
-                return false;
-            version = cleanVersion(v);
-            versionSource = source;
-            return true;
-        };
-        const projectVersion = str(pyproject?.project?.['version']);
-        const dynamic = pyproject?.project?.['dynamic'];
-        const isDynamic = Array.isArray(dynamic) && dynamic.includes('version');
-        if (projectVersion) {
-            setVersion(projectVersion, 'pyproject.toml:project.version');
-        }
-        else if (setVersion(str(get(pyproject?.tool, 'poetry', 'version')), 'pyproject.toml:tool.poetry.version')) ;
-        else if (pyproject && isDynamic) {
-            const dyn = await dynamicVersion(dir, pyproject);
-            if (dyn)
-                setVersion(dyn.version, dyn.source);
-        }
-        if (!version && setupCfg['metadata']?.['version']) {
-            const raw = setupCfg['metadata']['version'];
-            const attr = /^attr:\s*(.+)$/.exec(raw)?.[1]?.trim();
-            const file = /^file:\s*(.+)$/.exec(raw)?.[1]?.trim();
-            if (attr)
-                setVersion(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`);
-            else if (file)
-                setVersion(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`);
-            else
-                setVersion(raw, 'setup.cfg:metadata.version');
-        }
-        if (!version && setupPy) {
-            setVersion(/\bversion\s*=\s*["']([^"']+)["']/.exec(setupPy)?.[1], 'setup.py');
-        }
-        if (!version) {
-            const versionFile = await firstExisting(dir, VERSION_FILES);
-            if (versionFile)
-                setVersion(await readVersionFile(path$1.join(dir, versionFile)), versionFile);
-        }
-        if (!version) {
-            const scanned = await scanForDunderVersion(dir, name);
-            if (scanned)
-                setVersion(scanned.version, scanned.source);
-        }
-        if (!version && (usesScmVersioning(pyproject) || isDynamic)) {
-            setVersion(await gitDescribeTag(dir), 'git-tag');
-        }
-        // --- package manager ---
-        const lockfile = (await firstExisting(dir, LOCKFILES.map((l) => l.file))) ?? '';
-        const pmInfo = detectPackageManager(pyproject, lockfile, present);
-        let packageManagerVersion = pmInfo.version;
-        if (pmInfo.pm === 'poetry' && !packageManagerVersion)
-            packageManagerVersion = await poetryLockVersion(dir);
-        if (pmInfo.pm === 'uv' && !packageManagerVersion)
-            packageManagerVersion = str(get(pyproject?.tool, 'uv', 'required-version')) ?? '';
-        if (pmInfo.pm === 'poetry' && !packageManagerVersion)
-            packageManagerVersion = str(get(pyproject?.tool, 'poetry', 'requires-poetry')) ?? '';
-        return {
-            language: 'python',
-            name,
-            version,
-            versionSource,
-            packageManager: pmInfo.pm,
-            packageManagerVersion,
-            languageVersion: await pythonVersion(dir, pyproject, setupCfg),
-            manifest,
-            lockfile,
-        };
-    },
+  language: 'python',
+  async detect({ dir }) {
+    const present = new Set();
+    for (const m of MANIFESTS) if (await isFile(path$1.join(dir, m))) present.add(m);
+    const manifest = MANIFESTS.find((m) => present.has(m));
+    if (!manifest) return undefined
+
+    const pyproject = await readPyproject(dir);
+    const setupCfgText = present.has('setup.cfg') ? await readText(path$1.join(dir, 'setup.cfg')) : undefined;
+    const setupCfg = setupCfgText ? parseIni(setupCfgText) : {};
+    const setupPy = present.has('setup.py') ? await readText(path$1.join(dir, 'setup.py')) : undefined;
+
+    // --- name ---
+    const name =
+      _nullishCoalesce$1(_nullishCoalesce$1(_nullishCoalesce$1(_nullishCoalesce$1(str(_optionalChain$1([pyproject, 'optionalAccess', _19 => _19.project, 'optionalAccess', _20 => _20['name']])), () => (
+      str(get(_optionalChain$1([pyproject, 'optionalAccess', _21 => _21.tool]), 'poetry', 'name')))), () => (
+      _optionalChain$1([setupCfg, 'access', _22 => _22['metadata'], 'optionalAccess', _23 => _23['name']]))), () => (
+      (setupPy ? _optionalChain$1([/\bname\s*=\s*["']([^"']+)["']/, 'access', _24 => _24.exec, 'call', _25 => _25(setupPy), 'optionalAccess', _26 => _26[1]]) : undefined))), () => (
+      ''));
+
+    // --- version ---
+    let version = '';
+    let versionSource = '';
+    const setVersion = (v, source) => {
+      if (!v) return false
+      version = cleanVersion(v);
+      versionSource = source;
+      return true
+    };
+
+    const projectVersion = str(_optionalChain$1([pyproject, 'optionalAccess', _27 => _27.project, 'optionalAccess', _28 => _28['version']]));
+    const dynamic = _optionalChain$1([pyproject, 'optionalAccess', _29 => _29.project, 'optionalAccess', _30 => _30['dynamic']]);
+    const isDynamic = Array.isArray(dynamic) && dynamic.includes('version');
+
+    if (projectVersion) {
+      setVersion(projectVersion, 'pyproject.toml:project.version');
+    } else if (setVersion(str(get(_optionalChain$1([pyproject, 'optionalAccess', _31 => _31.tool]), 'poetry', 'version')), 'pyproject.toml:tool.poetry.version')) ; else if (pyproject && isDynamic) {
+      const dyn = await dynamicVersion(dir, pyproject);
+      if (dyn) setVersion(dyn.version, dyn.source);
+    }
+
+    if (!version && _optionalChain$1([setupCfg, 'access', _32 => _32['metadata'], 'optionalAccess', _33 => _33['version']])) {
+      const raw = setupCfg['metadata']['version'];
+      const attr = _optionalChain$1([/^attr:\s*(.+)$/, 'access', _34 => _34.exec, 'call', _35 => _35(raw), 'optionalAccess', _36 => _36[1], 'optionalAccess', _37 => _37.trim, 'call', _38 => _38()]);
+      const file = _optionalChain$1([/^file:\s*(.+)$/, 'access', _39 => _39.exec, 'call', _40 => _40(raw), 'optionalAccess', _41 => _41[1], 'optionalAccess', _42 => _42.trim, 'call', _43 => _43()]);
+      if (attr) setVersion(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`);
+      else if (file) setVersion(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`);
+      else setVersion(raw, 'setup.cfg:metadata.version');
+    }
+
+    if (!version && setupPy) {
+      setVersion(_optionalChain$1([/\bversion\s*=\s*["']([^"']+)["']/, 'access', _44 => _44.exec, 'call', _45 => _45(setupPy), 'optionalAccess', _46 => _46[1]]), 'setup.py');
+    }
+
+    if (!version) {
+      const versionFile = await firstExisting(dir, VERSION_FILES);
+      if (versionFile) setVersion(await readVersionFile(path$1.join(dir, versionFile)), versionFile);
+    }
+
+    if (!version) {
+      const scanned = await scanForDunderVersion(dir, name);
+      if (scanned) setVersion(scanned.version, scanned.source);
+    }
+
+    if (!version && (usesScmVersioning(pyproject) || isDynamic)) {
+      setVersion(await gitDescribeTag(dir), 'git-tag');
+    }
+
+    // --- package manager ---
+    const lockfile = await _asyncNullishCoalesce((await firstExisting(dir, LOCKFILES.map((l) => l.file))), async () => ( ''));
+    const pmInfo = detectPackageManager(pyproject, lockfile, present);
+    let packageManagerVersion = pmInfo.version;
+    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = await poetryLockVersion(dir);
+    if (pmInfo.pm === 'uv' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$1(str(get(_optionalChain$1([pyproject, 'optionalAccess', _47 => _47.tool]), 'uv', 'required-version')), () => ( ''));
+    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$1(str(get(_optionalChain$1([pyproject, 'optionalAccess', _48 => _48.tool]), 'poetry', 'requires-poetry')), () => ( ''));
+
+    return {
+      language: 'python',
+      name,
+      version,
+      versionSource,
+      packageManager: pmInfo.pm,
+      packageManagerVersion,
+      languageVersion: await pythonVersion(dir, pyproject, setupCfg),
+      manifest,
+      lockfile,
+    }
+  },
 };
 
 /** Detection order also defines which language wins when several are present in one directory. */
 const detectors = [nodeDetector, pythonDetector, goDetector];
+
 const languages = detectors.map((d) => d.language);
+
 function isLanguage(value) {
-    return languages.includes(value);
+  return (languages ).includes(value)
 }
 
 /**
@@ -31330,118 +31499,130 @@ function isLanguage(value) {
  * (in registry order) that matches becomes the primary result and the rest are still reported in `all`.
  */
 async function detectProject(dir, language) {
-    const selected = language ? detectors.filter((d) => d.language === language) : detectors;
-    const all = [];
-    for (const detector of selected) {
-        const result = await detector.detect({ dir });
-        if (result)
-            all.push(result);
-    }
-    return { primary: all[0], all };
+  const selected = language ? detectors.filter((d) => d.language === language) : detectors;
+  const all = [];
+  for (const detector of selected) {
+    const result = await detector.detect({ dir });
+    if (result) all.push(result);
+  }
+  return { primary: all[0], all }
 }
 
+function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+
 const OUTPUT_KEYS = [
-    ['language', 'language'],
-    ['name', 'name'],
-    ['version', 'version'],
-    ['version-source', 'versionSource'],
-    ['package-manager', 'packageManager'],
-    ['package-manager-version', 'packageManagerVersion'],
-    ['language-version', 'languageVersion'],
-    ['manifest', 'manifest'],
-    ['lockfile', 'lockfile'],
+  ['language', 'language'],
+  ['name', 'name'],
+  ['version', 'version'],
+  ['version-source', 'versionSource'],
+  ['package-manager', 'packageManager'],
+  ['package-manager-version', 'packageManagerVersion'],
+  ['language-version', 'languageVersion'],
+  ['manifest', 'manifest'],
+  ['lockfile', 'lockfile'],
 ];
+
 function emptyDetection() {
-    return {
-        language: 'unknown',
-        name: '',
-        version: '',
-        versionSource: '',
-        packageManager: '',
-        packageManagerVersion: '',
-        languageVersion: '',
-        manifest: '',
-        lockfile: '',
-    };
+  return {
+    language: 'unknown',
+    name: '',
+    version: '',
+    versionSource: '',
+    packageManager: '',
+    packageManagerVersion: '',
+    languageVersion: '',
+    manifest: '',
+    lockfile: '',
+  }
 }
+
 async function writeSummary(all, primary, dir) {
-    // Job summaries are always available on GitHub runners; skip gracefully elsewhere (e.g. @github/local-action).
-    if (!process.env['GITHUB_STEP_SUMMARY'])
-        return;
-    const summary$1 = summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${dir}</code>\n\n`);
-    if (all.length === 0) {
-        summary$1.addRaw('No supported project (Node.js, Python, Go) was found.\n');
-    }
-    else {
-        summary$1.addTable([
-            [
-                { data: 'Language', header: true },
-                { data: 'Name', header: true },
-                { data: 'Version', header: true },
-                { data: 'Version source', header: true },
-                { data: 'Package manager', header: true },
-                { data: 'Runtime', header: true },
-                { data: 'Manifest', header: true },
-                { data: 'Lockfile', header: true },
-            ],
-            ...all.map((d) => [
-                d === primary ? `<strong>${d.language}</strong> (primary)` : d.language,
-                d.name || '—',
-                d.version || '—',
-                d.versionSource || '—',
-                d.packageManagerVersion ? `${d.packageManager} ${d.packageManagerVersion}` : d.packageManager,
-                d.languageVersion || '—',
-                d.manifest,
-                d.lockfile || '—',
-            ]),
-        ]);
-    }
-    await summary$1.write();
+  // Job summaries are always available on GitHub runners; skip gracefully elsewhere (e.g. @github/local-action).
+  if (!process.env['GITHUB_STEP_SUMMARY']) return
+  const summary$1 = summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${dir}</code>\n\n`);
+  if (all.length === 0) {
+    summary$1.addRaw('No supported project (Node.js, Python, Go) was found.\n');
+  } else {
+    summary$1.addTable([
+      [
+        { data: 'Language', header: true },
+        { data: 'Name', header: true },
+        { data: 'Version', header: true },
+        { data: 'Version source', header: true },
+        { data: 'Package manager', header: true },
+        { data: 'Runtime', header: true },
+        { data: 'Manifest', header: true },
+        { data: 'Lockfile', header: true },
+      ],
+      ...all.map((d) => [
+        d === primary ? `<strong>${d.language}</strong> (primary)` : d.language,
+        d.name || '—',
+        d.version || '—',
+        d.versionSource || '—',
+        d.packageManagerVersion ? `${d.packageManager} ${d.packageManagerVersion}` : d.packageManager,
+        d.languageVersion || '—',
+        d.manifest,
+        d.lockfile || '—',
+      ]),
+    ]);
+  }
+  await summary$1.write();
 }
+
 async function run() {
-    const workingDirectory = getInput('working-directory') || '.';
-    const languageInput = (getInput('language') || 'auto').trim().toLowerCase();
-    const failOnUnknown = getBooleanInput('fail-on-unknown');
-    const dir = path$1.resolve(process.env['GITHUB_WORKSPACE'] ?? process.cwd(), workingDirectory);
-    let forced;
-    if (languageInput !== 'auto') {
-        if (!isLanguage(languageInput)) {
-            throw new Error(`Unsupported language "${languageInput}". Expected one of: auto, ${languages.join(', ')}`);
-        }
-        forced = languageInput;
+  const workingDirectory = getInput('working-directory') || '.';
+  const languageInput = (getInput('language') || 'auto').trim().toLowerCase();
+  const failOnUnknown = getBooleanInput('fail-on-unknown');
+
+  const dir = path$1.resolve(_nullishCoalesce(process.env['GITHUB_WORKSPACE'], () => ( process.cwd())), workingDirectory);
+
+  let forced;
+  if (languageInput !== 'auto') {
+    if (!isLanguage(languageInput)) {
+      throw new Error(`Unsupported language "${languageInput}". Expected one of: auto, ${languages.join(', ')}`)
     }
-    info(`Inspecting ${dir}${forced ? ` (language forced to ${forced})` : ''}`);
-    const { primary, all } = await detectProject(dir, forced);
-    if (all.length > 1) {
-        warning(`Multiple languages detected (${all.map((d) => d.language).join(', ')}); using "${primary?.language}" as primary. ` +
-            'Set the "language" input to choose explicitly.');
-    }
-    const values = primary ? { ...primary } : emptyDetection();
-    for (const [output, key] of OUTPUT_KEYS)
-        setOutput(output, values[key]);
-    setOutput('languages', JSON.stringify(all));
-    if (primary) {
-        info(`Detected ${primary.language} project "${primary.name || '(unnamed)'}" ` +
-            `version ${primary.version || '(unknown)'} using ${primary.packageManager}` +
-            `${primary.packageManagerVersion ? ` ${primary.packageManagerVersion}` : ''}` +
-            `${primary.languageVersion ? ` (runtime ${primary.languageVersion})` : ''}`);
-        if (!primary.version)
-            warning(`Could not determine the application version for ${primary.manifest}`);
-    }
-    await writeSummary(all, primary, dir);
-    if (!primary) {
-        const message = `No supported project found in ${dir} (looked for Node.js, Python and Go manifests)`;
-        if (failOnUnknown)
-            throw new Error(message);
-        warning(message);
-    }
+    forced = languageInput;
+  }
+
+  info(`Inspecting ${dir}${forced ? ` (language forced to ${forced})` : ''}`);
+  const { primary, all } = await detectProject(dir, forced);
+
+  if (all.length > 1) {
+    warning(
+      `Multiple languages detected (${all.map((d) => d.language).join(', ')}); using "${_optionalChain([primary, 'optionalAccess', _ => _.language])}" as primary. ` +
+        'Set the "language" input to choose explicitly.',
+    );
+  }
+
+  const values = primary ? { ...primary } : emptyDetection();
+  for (const [output, key] of OUTPUT_KEYS) setOutput(output, values[key]);
+  setOutput('languages', JSON.stringify(all));
+
+  if (primary) {
+    info(
+      `Detected ${primary.language} project "${primary.name || '(unnamed)'}" ` +
+        `version ${primary.version || '(unknown)'} using ${primary.packageManager}` +
+        `${primary.packageManagerVersion ? ` ${primary.packageManagerVersion}` : ''}` +
+        `${primary.languageVersion ? ` (runtime ${primary.languageVersion})` : ''}`,
+    );
+    if (!primary.version) warning(`Could not determine the application version for ${primary.manifest}`);
+  }
+
+  await writeSummary(all, primary, dir);
+
+  if (!primary) {
+    const message = `No supported project found in ${dir} (looked for Node.js, Python and Go manifests)`;
+    if (failOnUnknown) throw new Error(message)
+    warning(message);
+  }
 }
 
 /**
  * Action entry point. Kept separate from `main.ts` so `run()` can be imported by tests
  * without executing on import.
  */
+
 run().catch((error) => {
-    setFailed(error instanceof Error ? error.message : String(error));
+  setFailed(error instanceof Error ? error.message : String(error));
 });
 //# sourceMappingURL=index.js.map
