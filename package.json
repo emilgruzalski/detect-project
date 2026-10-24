@@ -2,6 +2,7 @@
   "name": "detect-project-action",
   "version": "1.0.1",
   "private": true,
+  "packageManager": "bun@1.4.3",
   "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go)",
   "type": "module",
   "exports": {
@@ -15,9 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "package": "rimraf dist && rollup --config rollup.config.ts",
-    "package:watch": "npm run package -- --watch",
+    "package:watch": "bun run package --watch",
     "local-action": "local-action . src/main.ts .env",
-    "all": "npm run typecheck && npm run package && npm run test"
+    "all": "bun run typecheck && bun run package && bun run test"
   },
   "dependencies": {
     "@actions/core": "^3.0.1",

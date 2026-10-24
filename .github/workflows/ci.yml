@@ -17,15 +17,17 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run package
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run package
       - name: Verify dist/ is up to date
         run: |
           if [ -n "$(git status --porcelain dist/)" ]; then
-            echo "::error::dist/ is out of date. Run 'npm run package' and commit the result."
+            echo "::error::dist/ is out of date. Run 'bun run package' and commit the result."
             git status --porcelain dist/
             exit 1
           fi

@@ -115,17 +115,17 @@ If several languages are found in one directory, they are all reported in the `l
 
 ## Development
 
-Requires Node.js 24 (see `.node-version`).
+Requires Node.js 24 (see `.node-version`) and [Bun](https://bun.sh) as the package manager (version pinned in `packageManager`). Scripts run on Node; Bun only installs dependencies and runs scripts.
 
 ```bash
-npm ci
-npm run typecheck
-npm test              # vitest (unit tests + e2e tests that run the bundled dist/index.js)
-npm run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
-npm run local-action  # runs the action locally via @github/local-action using inputs from .env
+bun install
+bun run typecheck
+bun run test          # vitest (unit tests + e2e tests that run the bundled dist/index.js)
+bun run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
+bun run local-action  # runs the action locally via @github/local-action using inputs from .env
 ```
 
-`dist/` is committed (GitHub runs the action straight from it, no `npm install` on the runner); CI fails if it is out of date, so run `npm run package` before committing source changes. To try the action locally, copy `.env.example` to `.env` and run `npm run local-action`.
+`dist/` is committed (GitHub runs the action straight from it, no dependency install on the runner); CI fails if it is out of date, so run `bun run package` before committing source changes. To try the action locally, copy `.env.example` to `.env` and run `bun run local-action`.
 
 Source layout:
 
@@ -144,7 +144,7 @@ Adding a language means implementing the `Detector` interface from `src/types.ts
 
 ## Releasing
 
-1. Bump `version` in `package.json`, add an entry to [CHANGELOG.md](CHANGELOG.md), run `npm run all`, commit (including `dist/`).
+1. Bump `version` in `package.json`, add an entry to [CHANGELOG.md](CHANGELOG.md), run `bun run all`, commit (including `dist/`).
 2. Create a GitHub release with a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.0`). Tick **Publish this Action to the GitHub Marketplace** on the release form if you want it listed.
 3. The [Release workflow](.github/workflows/release.yml) verifies that `dist/` is fresh and force-moves the floating major tag (`v1`) to that release, so `uses: …@v1` users get the update.
 
