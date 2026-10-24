@@ -120,8 +120,9 @@ Requires Node.js 24 (see `.node-version`) and [Bun](https://bun.sh) as the packa
 ```bash
 bun install
 bun run typecheck
-bun run test          # vitest (unit tests + e2e tests that run the bundled dist/index.js)
+bun run test          # vitest unit tests
 bun run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
+bun run test:e2e      # e2e tests that run the bundled dist/index.js like the runner does
 bun run local-action  # runs the action locally via @github/local-action using inputs from .env
 ```
 
@@ -137,7 +138,7 @@ src/
   detectors/
     node.ts python.ts go.ts
   utils/               # fs helpers, TOML/INI parsing, version normalisation, runtime files
-__tests__/             # vitest suites (e2e.test.ts runs dist/) + fixtures used by the e2e tests and workflow
+__tests__/             # vitest suites (e2e.test.ts runs dist/) + fixtures used by the e2e tests and the CI `e2e` job
 ```
 
 Adding a language means implementing the `Detector` interface from `src/types.ts` and registering it in `src/detectors/index.ts`.

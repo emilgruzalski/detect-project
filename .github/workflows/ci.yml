@@ -22,7 +22,8 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun run test
+      - name: Unit tests
+        run: bun run test
       - run: bun run package
       - name: Verify dist/ is up to date
         run: |
@@ -31,48 +32,83 @@ jobs:
             git status --porcelain dist/
             exit 1
           fi
+      # Runs dist/index.js in a separate Node process, the same way the runner does.
+      - name: E2E tests (bundle)
+        run: bun run test:e2e
 
+  # Runs the action through `uses: ./` on a real runner, once per scenario. Every scenario
+  # declares its inputs and the outputs it expects; only the keys listed in `expected` are checked.
   e2e:
-    name: Run action (${{ matrix.fixture }})
+    name: E2E (${{ matrix.name }})
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - fixture: node-pnpm
-            language: node
-            version: '1.2.3'
-            package-manager: pnpm
-            package-manager-version: '9.12.0'
-            language-version: '20.18.0'
-          - fixture: python-poetry
-            language: python
-            version: '4.5.6'
-            package-manager: poetry
-            package-manager-version: '1.8.4'
-            language-version: '^3.11'
-          - fixture: go-module
+          - name: node-pnpm
+            working-directory: __tests__/fixtures/node-pnpm
+            fail-on-unknown: true
+            expected:
+              language: node
+              version: '1.2.3'
+              package-manager: pnpm
+              package-manager-version: '9.12.0'
+              language-version: '20.18.0'
+          - name: python-poetry
+            working-directory: __tests__/fixtures/python-poetry
+            fail-on-unknown: true
+            expected:
+              language: python
+              version: '4.5.6'
+              package-manager: poetry
+              package-manager-version: '1.8.4'
+              language-version: '^3.11'
+          - name: go-module
+            working-directory: __tests__/fixtures/go-module
+            fail-on-unknown: true
+            expected:
+              language: go
+              version: '7.8.9'
+              package-manager: go
+              package-manager-version: '1.22.7'
+              language-version: '1.22.0'
+          - name: mixed, auto
+            working-directory: __tests__/fixtures/mixed
+            expected:
+              language: node
+              languages: '["node","go"]'
+          - name: mixed, forced go
+            working-directory: __tests__/fixtures/mixed
             language: go
-            version: '7.8.9'
-            package-manager: go
-            package-manager-version: '1.22.7'
-            language-version: '1.22.0'
+            expected:
+              language: go
+              name: example.com/mixed
+          - name: unknown
+            working-directory: .github
+            expected:
+              language: unknown
     steps:
       - uses: actions/checkout@v7
       - id: detect
         uses: ./
         with:
-          working-directory: __tests__/fixtures/${{ matrix.fixture }}
-          fail-on-unknown: true
+          working-directory: ${{ matrix.working-directory }}
+          language: ${{ matrix.language || 'auto' }}
+          fail-on-unknown: ${{ matrix.fail-on-unknown || false }}
       - name: Assert outputs
         env:
-          EXPECTED: ${{ toJSON(matrix) }}
+          EXPECTED: ${{ toJSON(matrix.expected) }}
           ACTUAL: ${{ toJSON(steps.detect.outputs) }}
         run: |
           fail=0
-          for key in language version package-manager package-manager-version language-version; do
+          for key in $(echo "$EXPECTED" | jq -r 'keys[]'); do
             expected=$(echo "$EXPECTED" | jq -r ".\"$key\"")
             actual=$(echo "$ACTUAL" | jq -r ".\"$key\"")
+            # `languages` is the full detection result; compare only the detected language list.
+            if [ "$key" = languages ]; then
+              actual=$(echo "$actual" | jq -c '[.[].language]')
+            fi
             if [ "$expected" != "$actual" ]; then
               echo "::error::$key: expected '$expected', got '$actual'"
               fail=1
@@ -81,29 +117,3 @@ jobs:
             fi
           done
           exit $fail
-
-  e2e-mixed:
-    name: Run action (mixed, forced language)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - id: auto
-        uses: ./
-        with:
-          working-directory: __tests__/fixtures/mixed
-      - id: forced
-        uses: ./
-        with:
-          working-directory: __tests__/fixtures/mixed
-          language: go
-      - id: unknown
-        uses: ./
-        with:
-          working-directory: .github
-      - name: Assert outputs
-        run: |
-          test "${{ steps.auto.outputs.language }}" = node
-          test "$(echo '${{ steps.auto.outputs.languages }}' | jq length)" = 2
-          test "${{ steps.forced.outputs.language }}" = go
-          test "${{ steps.forced.outputs.name }}" = example.com/mixed
-          test "${{ steps.unknown.outputs.language }}" = unknown

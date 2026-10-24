@@ -13,12 +13,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude __tests__/e2e.test.ts",
+    "test:e2e": "vitest run __tests__/e2e.test.ts",
     "test:watch": "vitest",
     "package": "rimraf dist && rollup --config rollup.config.ts",
     "package:watch": "bun run package --watch",
     "local-action": "local-action . src/main.ts .env",
-    "all": "bun run typecheck && bun run package && bun run test"
+    "all": "bun run typecheck && bun run test && bun run package && bun run test:e2e"
   },
   "dependencies": {
     "@actions/core": "^3.0.1",

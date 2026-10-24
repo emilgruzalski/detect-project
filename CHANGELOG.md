@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Switched the package manager from npm to Bun: `package-lock.json` → `bun.lock`, `packageManager: bun@1.4.3`, CI/release workflows use `oven-sh/setup-bun` and `bun install --frozen-lockfile`, Dependabot uses the `bun` ecosystem. Build and tests still run on Node 24.
+- CI: unit tests and bundle e2e tests are separate scripts (`test`, `test:e2e`); the bundle e2e runs after the build, against the fresh `dist/`. All `uses: ./` scenarios are now a single `e2e` matrix job with one shared assertion step, and it runs after `build`.
 
 ## [1.0.1] - 2026-10-23
 
