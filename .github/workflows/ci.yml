@@ -32,12 +32,10 @@ jobs:
             git status --porcelain dist/
             exit 1
           fi
-      # Runs dist/index.js in a separate Node process, the same way the runner does.
-      - name: E2E tests (bundle)
-        run: bun run test:e2e
 
   # Runs the action through `uses: ./` on a real runner, once per scenario. Every scenario
   # declares its inputs and the outputs it expects; only the keys listed in `expected` are checked.
+  # (`bun run test:e2e` covers the same scenarios locally, without pushing.)
   e2e:
     name: E2E (${{ matrix.name }})
     needs: build
@@ -88,10 +86,17 @@ jobs:
             working-directory: .github
             expected:
               language: unknown
+          - name: unknown, fail-on-unknown
+            working-directory: .github
+            fail-on-unknown: true
+            expect-failure: true
+            expected:
+              language: unknown
     steps:
       - uses: actions/checkout@v7
       - id: detect
         uses: ./
+        continue-on-error: ${{ matrix.expect-failure || false }}
         with:
           working-directory: ${{ matrix.working-directory }}
           language: ${{ matrix.language || 'auto' }}
@@ -100,8 +105,14 @@ jobs:
         env:
           EXPECTED: ${{ toJSON(matrix.expected) }}
           ACTUAL: ${{ toJSON(steps.detect.outputs) }}
+          EXPECTED_OUTCOME: ${{ matrix.expect-failure && 'failure' || 'success' }}
+          OUTCOME: ${{ steps.detect.outcome }}
         run: |
           fail=0
+          if [ "$EXPECTED_OUTCOME" != "$OUTCOME" ]; then
+            echo "::error::step outcome: expected '$EXPECTED_OUTCOME', got '$OUTCOME'"
+            fail=1
+          fi
           for key in $(echo "$EXPECTED" | jq -r 'keys[]'); do
             expected=$(echo "$EXPECTED" | jq -r ".\"$key\"")
             actual=$(echo "$ACTUAL" | jq -r ".\"$key\"")
