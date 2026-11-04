@@ -1,12 +1,16 @@
 # Detect Project
 
-GitHub Action that inspects a directory and reports **which language it is**, **what version the application is** and **which package manager it uses**. Supports **Node.js**, **Python**, **Go**, **Rust**, **Dart/Flutter**, **Ruby**, **PHP**, **.NET** and **Java/JVM** (Maven, Gradle).
+A GitHub Action that looks at a directory and tells your workflow **what the project is**: its language, application version, package manager, runtime version and the command that installs its dependencies — for **Node.js, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET and Java/JVM** (Maven, Gradle).
 
-Typical uses: choosing the right `setup-*` action in a reusable workflow, tagging Docker images with the app version, or deciding between `npm ci` / `pnpm install` / `poetry install` without hard-coding it per repository.
+Use it to pick the right `setup-*` action in a reusable workflow, tag images with the app version, run the right install command without hard-coding it per repository, or fan out a matrix over every project in a monorepo.
 
-Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the default on GitHub-hosted runners and requires runner v2.327.1+ on self-hosted machines (Node 24 does not run on macOS ≤ 13.4 or ARM32).
+- **Reads what the tools read** — manifests, lockfiles, `.nvmrc`/`.python-version`/`rust-toolchain.toml`/`global.json`/…, release tooling and git tags — and says where every value came from.
+- **Monorepo-aware** — workspace members (pnpm, npm/Yarn/Bun, uv, cargo, pub, Maven, Gradle) inherit the root's lockfile, package manager and settings; `discover` lists every project for a matrix.
+- **Setup-ready outputs** — `language-version-file` plugs straight into `node-version-file`, `python-version-file`, `go-version-file`, `java-version-file`, …
 
-## Usage
+Runs on the `node24` action runtime (default on GitHub-hosted runners; self-hosted runners need v2.327.1+).
+
+## Quick start
 
 ```yaml
 - uses: actions/checkout@v7
@@ -14,279 +18,95 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 - id: project
   uses: emilgruzalski/detect-project@v1
   with:
-    working-directory: .        # optional, default "."
-    language: auto              # optional: auto | node | python | go
-    language-priority: ''       # optional, e.g. "python,node" for mixed repositories
-    tag-pattern: ''             # optional, e.g. "release-*" for the git-tag version fallback
-    discover: false             # optional: also report every project below working-directory
-    fail-on-unknown: false      # optional: fail when nothing is detected
+    working-directory: apps/api   # optional, default "."
 
-- run: |
-    echo "language:        ${{ steps.project.outputs.language }}"
-    echo "name:            ${{ steps.project.outputs.name }}"
-    echo "version:         ${{ steps.project.outputs.version }}"
-    echo "package manager: ${{ steps.project.outputs.package-manager }} ${{ steps.project.outputs.package-manager-version }}"
-    echo "runtime:         ${{ steps.project.outputs.language-version }} (${{ steps.project.outputs.language-version-source }})"
-    echo "install:         ${{ steps.project.outputs.install-command }} in ${{ steps.project.outputs.workspace-root }}"
+- run: echo "${{ steps.project.outputs.language }} ${{ steps.project.outputs.version }} via ${{ steps.project.outputs.package-manager }}"
 ```
 
-### Inputs
+For `apps/api` in a pnpm monorepo this gives, among others:
+
+| Output | Value |
+| --- | --- |
+| `language` / `name` / `version` | `node` / `@acme/api` / `2.1.0-rc.1` |
+| `package-manager` / `package-manager-version` | `pnpm` / `10.4.1` |
+| `language-version` / `language-version-file` | `22.11.0` / `.nvmrc` (found in the repository root) |
+| `install-command` / `workspace-root` | `pnpm install --frozen-lockfile` / `.` |
+
+## Supported ecosystems
+
+| `language` | Manifest | `package-manager` | Runtime version from (first match) |
+| --- | --- | --- | --- |
+| `node` | `package.json` | `npm`, `pnpm`, `yarn`, `bun` | `.nvmrc`, `.node-version`, `volta`, `devEngines.runtime`, `engines.node` |
+| `python` | `pyproject.toml`, `setup.cfg`, `setup.py`, `Pipfile`, `requirements.txt` | `pip`, `uv`, `poetry`, `pdm`, `pipenv`, `hatch` | `.python-version`, `requires-python`, Poetry `python`, `Pipfile` |
+| `go` | `go.mod`, `go.work`, `Gopkg.toml` | `go`, `dep` | `go` / `toolchain` directive |
+| `rust` | `Cargo.toml` | `cargo` | `rust-toolchain(.toml)`, `rust-version` |
+| `dart` | `pubspec.yaml` | `dart`, `flutter` | Flutter: `.fvmrc`, `environment.flutter` · Dart: `environment.sdk` |
+| `ruby` | `Gemfile`, `gems.rb`, `*.gemspec` | `bundler` | `.ruby-version`, Gemfile `ruby`, `Gemfile.lock` |
+| `php` | `composer.json` | `composer` | `.php-version`, Composer platform, `require.php` |
+| `dotnet` | `*.sln(x)`, `*.csproj`, `*.fsproj`, `*.vbproj` | `dotnet` | `global.json`, target framework |
+| `java` | `pom.xml`, `build.gradle(.kts)`, `settings.gradle(.kts)` | `maven`, `gradle` | `.java-version`, `.sdkmanrc`, compiler release / toolchain |
+
+`.tool-versions` (asdf) and `mise.toml` are read for every runtime. The complete rules are under [How detection works](#how-detection-works).
+
+## Inputs
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `working-directory` | `.` | Directory to inspect, relative to the workspace root. The step **fails** when it does not exist or is not a directory. |
-| `language` | `auto` | Force a language (`node`, `python`, `go`, `rust`, `dart`, `ruby`, `php`, `dotnet`, `java` — `dart` includes Flutter, `java` any Maven or Gradle build) instead of auto-detecting. |
-| `language-priority` | | Languages to prefer as primary when several are detected, comma separated (`python,node`). Unlisted languages follow in the default order. |
-| `tag-pattern` | | `git describe --match` glob(s) for the [git-tag fallback](#git-tags), comma or newline separated (`release-*`, `api@v*`). Replaces the default `vX.Y…` / `X.Y…` patterns; the literal part before the first wildcard is stripped from the tag. |
-| `discover` | `false` | Also inspect the subdirectories of `working-directory` and report every project found in the `projects` output (see [Discovering projects](#discovering-projects)). |
-| `discover-max-depth` | `3` | How many directory levels below `working-directory` `discover` inspects (`0`–`10`). |
-| `discover-exclude` | | Globs relative to `working-directory` that `discover` skips together with everything below them, comma or newline separated (`examples, legacy/**`). |
-| `fail-on-unknown` | `false` | Fail the step when no supported project is found (with `discover`: neither in `working-directory` nor below it). |
+| `working-directory` | `.` | Directory to inspect, relative to the workspace root. The step **fails** when it does not exist. |
+| `language` | `auto` | Only consider this language: `node`, `python`, `go`, `rust`, `dart` (incl. Flutter), `ruby`, `php`, `dotnet` or `java` (any Maven/Gradle build). |
+| `language-priority` | | Languages to prefer as primary when a directory has several, comma separated (`python,node`). The rest keep the default order. |
+| `tag-pattern` | | `git describe --match` globs for the [git-tag fallback](#versions), comma or newline separated (`release-*`, `api@v*`). |
+| `discover` | `false` | Also inspect the subdirectories and report every project in the `projects` output. See [Monorepo matrix](#build-every-project-of-a-monorepo). |
+| `discover-max-depth` | `3` | How many levels below `working-directory` `discover` goes (`0`–`10`). |
+| `discover-exclude` | | Globs relative to `working-directory` that `discover` skips, comma or newline separated (`examples, legacy/**`). |
+| `fail-on-unknown` | `false` | Fail the step when no project is found (with `discover`: neither in `working-directory` nor below it). |
 
-### Outputs
+## Outputs
 
 | Output | Example | Description |
 | --- | --- | --- |
-| `language` | `node` | `node`, `python`, `go`, `rust`, `dart` (Dart and Flutter), `ruby`, `php`, `dotnet`, `java` (Maven and Gradle builds, also Kotlin) or `unknown`. |
-| `name` | `my-app` | `package.json` name, pyproject name or Go module path. |
-| `version` | `1.4.2-rc.1` | Application version. Empty when it cannot be determined. |
-| `version-source` | `package.json` | Where the version came from (`pyproject.toml:project.version`, `VERSION`, `internal/version/version.go`, `../../.release-please-manifest.json:apps/api`, `git-tag`, …). |
-| `version-major` / `version-minor` / `version-patch` | `1` / `4` / `2` | Version components; minor and patch are `0` when absent (`1.4` → `1`/`4`/`0`). Empty without a version. |
-| `version-prerelease` | `rc.1` | Pre-release part (`rc.1`, `beta2`, PEP 440 `dev3`); empty for final releases, including PEP 440 post-releases. |
-| `version-build` | `45` | Build metadata after `+` (`1.2.3+45`, PEP 440 local version). |
-| `is-prerelease` | `true` | `true` when `version-prerelease` is set, otherwise `false`. |
-| `package-manager` | `pnpm` | See the table below. |
-| `package-manager-version` | `9.12.0` | When declared somewhere (see below). Otherwise, for pnpm and Yarn, the major version implied by the lockfile format (`>=9`, `8`, `1`, `>=2`, …); empty when unknown. |
-| `language-version` | `>=20` | Runtime version or constraint (`.nvmrc`, `requires-python`, `go` directive, …), passed through as written. |
-| `language-version-source` | `package.json:engines.node` | Where `language-version` came from, relative to `working-directory` (`.nvmrc`, `../../.python-version`, `go.mod:go`, …). |
-| `language-version-file` | `apps/api/.nvmrc` | The file `language-version` was read from, relative to the workspace root, **only** when the official setup action reads the same value from it (see [below](#passing-the-runtime-to-setup-actions)); otherwise empty. |
+| `language` | `node` | Primary language (see [Supported ecosystems](#supported-ecosystems)) or `unknown`. |
+| `name` | `my-app` | Project name from the manifest (package name, module path, `artifactId`, …). |
 | `manifest` | `package.json` | Manifest the detection is based on, relative to `working-directory`. |
-| `lockfile` | `../../pnpm-lock.yaml` | Lockfile relative to `working-directory` — for workspace members that is the workspace root's lockfile. Empty when there is none. |
-| `workspace-root` | `.` | Where to install dependencies, relative to the workspace root: the monorepo root for workspace members, otherwise `working-directory` itself. |
-| `install-command` | `pnpm install --frozen-lockfile` | Dependency install command for the detected package manager, meant to run in `workspace-root` (table below). Empty when there is no safe default. |
-| `cache-dependency-path` | `pnpm-lock.yaml` | Dependency file for `cache-dependency-path` of the setup actions, relative to the workspace root: the lockfile, or for pip `requirements.txt` / the manifest. Empty when there is none. |
-| `languages` | `[{…}, {…}]` | JSON array with the full result for **every** language found (same fields as the outputs, camelCase) — useful for mixed repos. |
-| `projects` | `[{"directory":"apps/web",…}]` | With `discover`: one entry per project directory found — `directory` (relative to the workspace root, usable as `working-directory`), `languages` and every field of its primary result (camelCase). `[]` otherwise. |
+| `version` | `1.4.2-rc.1` | Application version; empty when nothing declares one. A leading `v` is stripped. |
+| `version-source` | `package.json` | Where the version came from, e.g. `pyproject.toml:project.version`, `../../.release-please-manifest.json:apps/api`, `git-tag`. |
+| `version-major` / `version-minor` / `version-patch` | `1` / `4` / `2` | Version components; minor and patch are `0` when absent. |
+| `version-prerelease` | `rc.1` | Pre-release part (`rc.1`, `beta2`, PEP 440 `dev3`); empty for final releases. |
+| `version-build` | `27` | Build metadata after `+` (`1.4.0+27`). |
+| `is-prerelease` | `false` | `true` when `version-prerelease` is set. |
+| `package-manager` | `pnpm` | Package manager or build tool (see [Supported ecosystems](#supported-ecosystems)). |
+| `package-manager-version` | `9.12.0` | Its version when declared (`packageManager`, wrapper, `BUNDLED WITH`, …); for pnpm and Yarn otherwise the major implied by the lockfile. |
+| `lockfile` | `../../pnpm-lock.yaml` | Lockfile relative to `working-directory` — the workspace root's for workspace members. |
+| `install-command` | `pnpm install --frozen-lockfile` | Dependency install command, to run in `workspace-root`; empty when there is no safe default. |
+| `workspace-root` | `.` | Where to install dependencies, relative to the workspace root: the monorepo root for workspace members, else `working-directory`. |
+| `cache-dependency-path` | `pnpm-lock.yaml` | File for the setup actions' `cache-dependency-path`, relative to the workspace root. |
+| `language-version` | `>=20` | Runtime version or constraint, as written (`.nvmrc`, `requires-python`, `go` directive, …). |
+| `language-version-source` | `package.json:engines.node` | Where `language-version` came from, relative to `working-directory`. |
+| `language-version-file` | `apps/api/.nvmrc` | That file, relative to the workspace root — **only** when the setup action reads the same value from it. See [Set up the toolchain](#set-up-the-toolchain). |
+| `languages` | `[{…}]` | JSON array with the full result (camelCase fields) for **every** language found in the directory. |
+| `projects` | `[{"directory":"apps/web",…}]` | With `discover`: one entry per project directory (`directory`, `languages` and all fields of its primary result); `[]` otherwise. |
 
-Leading `v` is stripped from versions (`v1.2.3` → `1.2.3`); constraints such as `>=3.11` or `^9` are passed through unchanged.
+## Recipes
 
-## Detection rules
+### Set up the toolchain
 
-### Node.js — manifest: `package.json`
+`language-version` is passed through as written, so it is not always valid input for a setup action — a PEP 440 constraint such as `>=3.10,<3.13` is not a SemVer range. Pass `language-version-file` to the action's version-file input instead; it is only set when the action reads the same value from that file:
 
-| What | Sources, in priority order |
+| Setup action | `language-version-file` is set for |
 | --- | --- |
-| Version | `version` field → [release tooling](#release-tooling) |
-| Package manager | `packageManager` field (corepack) → `devEngines.packageManager` → lockfile (`bun.lock`/`bun.lockb`, `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `npm-shrinkwrap.json`) → the same from the workspace root (`pnpm-workspace.yaml` alone means pnpm) → `volta`/`engines` entry → `npm` |
-| Package manager version | `packageManager` field → `devEngines` → `volta.<pm>` → `.yarnrc.yml` `yarnPath` (Yarn Berry) → `engines.<pm>` (project first, then workspace root) → lockfile format, as a major version: `pnpm-lock.yaml` `lockfileVersion` 5.3 → `6`, 5.4 → `7`, 6.x → `8`, 9.x → `>=9` (pnpm 9 and 10); Yarn v1 lockfile → `1`, Berry lockfile (`__metadata`) → `>=2` |
-| Runtime version | `.nvmrc` → `.node-version` → `volta.node` → `devEngines.runtime` → `engines.node` → `.tool-versions` → `mise.toml` |
-| Install command | `npm ci` / `npm install`, `pnpm install --frozen-lockfile`, `yarn install --immutable` (Berry) or `--frozen-lockfile` (Classic), `bun install --frozen-lockfile` — the frozen form only when the lockfile belongs to the detected package manager |
+| actions/setup-node (`node-version-file`) | `.nvmrc`, `.node-version`, `package.json` (`volta.node`, `devEngines.runtime`, `engines.node`), `.tool-versions`, `mise.toml` (`tools.node`) |
+| actions/setup-python (`python-version-file`) | `.python-version`, `pyproject.toml` (`requires-python`, or Poetry's `python` without a `[project]` table), `Pipfile`, `.tool-versions` |
+| actions/setup-go (`go-version-file`) | `go.mod` / `go.work`, `.tool-versions` (`golang`) |
+| subosito/flutter-action (`flutter-version-file`) | `.fvmrc`, `.fvm/fvm_config.json`, `pubspec.yaml` with an exact `environment.flutter` |
+| shivammathur/setup-php (`php-version-file`) | `.php-version`, `.tool-versions` |
+| actions/setup-dotnet (`global-json-file`) | `global.json` |
+| actions/setup-java (`java-version-file`) | `.java-version`, `.sdkmanrc`, `.tool-versions` |
+| ruby/setup-ruby (reads files itself) | `.ruby-version`, `.tool-versions`, `mise.toml` (`tools.ruby`) |
+| actions-rust-lang/setup-rust-toolchain (reads files itself) | `rust-toolchain.toml`, `rust-toolchain` |
 
-### Python — manifest: `pyproject.toml`, `setup.cfg`, `setup.py`, `Pipfile` or `requirements.txt` (first found)
-
-| What | Sources, in priority order |
-| --- | --- |
-| Version | `[project] version` → `[tool.poetry] version` → dynamic version (`[tool.setuptools.dynamic]` `attr:`/`file:`, `[tool.hatch.version] path`, `[tool.pdm.version]`, flit module) → `setup.cfg` `[metadata] version` (incl. `attr:`/`file:`) → `setup.py` `version=` → `VERSION` file → [release tooling](#release-tooling) → `__version__` in the project's own package (see below) → latest git tag (only for SCM-versioned projects) |
-| Package manager | lockfile (`uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile.lock`) → membership of a uv workspace → `[tool.uv]` / `[tool.poetry]` / `[tool.pdm]` / `[tool.hatch.envs]` → build backend (`poetry.core…` → poetry, `pdm…` → pdm) → `Pipfile` → `pip` |
-| Lockfile | the above, then PEP 751 `pylock.toml` / `pylock.<name>.toml` (tool-agnostic, so it does not decide the package manager); workspace members get the root `uv.lock` |
-| Package manager version | `poetry.lock` header (`@generated by Poetry X.Y.Z`) → `[tool.poetry] requires-poetry` → `[tool.uv] required-version` (project, then workspace root) |
-| Runtime version | `.python-version` → `[project] requires-python` → `[tool.poetry.dependencies] python` → `Pipfile` `[requires]` → `setup.cfg` `python_requires` → `runtime.txt` → `.tool-versions` → `mise.toml` |
-| Install command | `uv sync --locked` (`--package <name>` for workspace members), `poetry install`, `pdm sync` / `pdm install`, `hatch env create`, `pipenv install --deploy` / `pipenv install`, `pip install -r requirements.txt` / `pip install .` |
-
-The `__version__` scan only looks at the project's own package: the module named after the project (`my-app` → `my_app`, in the root or `src/`), or else the single top-level package in the root or `src/`. Directories such as `tests/`, `docs/`, `vendor/` or `third_party/` never count, and with several candidate packages nothing is guessed.
-
-### Go — manifest: `go.mod` (or `go.work`, `Gopkg.toml`)
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name | `module` directive |
-| Version | `VERSION` file → [release tooling](#release-tooling) → `Version = "…"` / `Version string = "…"` constant in `version.go`, `internal/version/version.go`, `cmd/**/version.go`, … (placeholders like `"dev"` are ignored) → a package-level one-line `var version = "X.Y…"` in `main.go` / `cmd/*/main.go` → latest git tag |
-| Package manager | `go` (modules), `dep` for `Gopkg.toml` |
-| Package manager version | `toolchain` directive |
-| Runtime version | `go` directive → `toolchain` → `.tool-versions` → `mise.toml` |
-| Install command | `go mod download` (`dep ensure` for dep; none for a bare `go.work`) |
-
-### Rust — manifest: `Cargo.toml`
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name | `[package] name` (empty for a virtual workspace root) |
-| Version | `[package] version` → `[workspace.package] version` (for `version.workspace = true` and virtual workspace roots) → [release tooling](#release-tooling) → latest git tag |
-| Package manager | `cargo` |
-| Lockfile | `Cargo.lock` of the package, otherwise of its cargo workspace root |
-| Runtime version | `rust-toolchain.toml` `[toolchain] channel` / legacy `rust-toolchain`, in the package directory or the nearest parent up to the repository root (as rustup resolves them) → `rust-version` (MSRV; inherited from `[workspace.package]` with `rust-version.workspace = true`) → `.tool-versions` → `mise.toml` |
-| Install command | `cargo fetch --locked` with a `Cargo.lock`, otherwise `cargo fetch` |
-
-The cargo workspace of a package is its own Cargo.toml when that has a `[workspace]` table, the path in `package.workspace`, or else the nearest parent with a `[workspace]` that does not `exclude` it.
-
-### Dart / Flutter — manifest: `pubspec.yaml`
-
-`language` is `dart` for both; a project is a Flutter project — `package-manager` `flutter` instead of `dart` — when it depends on the Flutter SDK (`flutter: sdk: flutter`), constrains `environment.flutter` or has a `flutter:` section.
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name | `name` |
-| Version | `version`, as written (`1.4.0+27`: `version-build` is `27`) → [release tooling](#release-tooling) |
-| Package manager | `flutter` or `dart` (pub) |
-| Lockfile | `pubspec.lock` of the package, otherwise of its [pub workspace](https://dart.dev/tools/pub/workspaces) root (members declare `resolution: workspace`, the root lists them under `workspace:`) |
-| Runtime version (Flutter) | The **Flutter** SDK version — Dart comes with it: FVM pin (`.fvmrc` `flutter`, `.fvm/fvm_config.json` `flutterSdkVersion`) in the package directory or the nearest parent up to the repository root → `environment.flutter` → `.tool-versions` → `mise.toml` |
-| Runtime version (Dart) | `environment.sdk` → `.tool-versions` → `mise.toml` |
-| Install command | `flutter pub get` / `dart pub get`, with `--enforce-lockfile` when there is a `pubspec.lock` |
-
-`pubspec.yaml` is parsed with the YAML failsafe schema, so `version: 1.10` stays `1.10` instead of becoming the number 1.1.
-
-### Ruby — manifest: `Gemfile` (or `gems.rb`, or a `*.gemspec` alone)
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name | gemspec `spec.name = "…"` or `Gem::Specification.new "…"` (empty for apps) |
-| Version | gemspec literal version → `VERSION = "…"` in `lib/<name>/version.rb` (or the single `lib/*/version.rb`) → `VERSION` file → [release tooling](#release-tooling) |
-| Package manager | `bundler`; version from `BUNDLED WITH` in `Gemfile.lock` |
-| Runtime version | `.ruby-version` → Gemfile `ruby "…"` / `ruby file: "…"` → `Gemfile.lock` `RUBY VERSION` → `.tool-versions` → `mise.toml` |
-| Install command | `bundle install` (none for a gemspec without Gemfile) |
-
-### PHP — manifest: `composer.json`
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name / version | `name`; `version` → [release tooling](#release-tooling) → latest git tag (Packagist versions packages by tags) |
-| Package manager | `composer`; lockfile `composer.lock` |
-| Runtime version | `.php-version` → `composer.lock` `platform-overrides.php` → `config.platform.php` → `require.php` → `.tool-versions` → `mise.toml` — the first three in the order shivammathur/setup-php reads them |
-| Install command | `composer install --no-interaction` |
-
-### .NET — manifest: `*.sln` / `*.slnx`, else `*.csproj` / `*.fsproj` / `*.vbproj` (first by name)
-
-| What | Sources, in priority order |
-| --- | --- |
-| Name | project `PackageId` → `AssemblyName` → file name (solutions: file name) |
-| Version | project `Version` → `VersionPrefix`[`-VersionSuffix`] → the same in the nearest `Directory.Build.props` (and local files it imports, e.g. `Directory.Version.props`) → Nerdbank.GitVersioning `version.json` → [release tooling](#release-tooling) → latest git tag (MinVer, GitVersion); conditional and computed (`$(…)`) values are skipped |
-| Package manager | `dotnet` (NuGet); lockfile `packages.lock.json` |
-| Runtime version | `global.json` `sdk.version`, looked up to the repository root like the `dotnet` CLI → highest `TargetFramework(s)` as an SDK major (`net8.0` → `8.0`) → `.tool-versions` → `mise.toml` |
-| Install command | `dotnet restore` (with the file name when the directory holds several solutions/projects; `--locked-mode` with a lockfile) |
-
-### Java / JVM — manifest: `pom.xml`, else `build.gradle(.kts)` / `settings.gradle(.kts)`
-
-`language` is `java` for every Maven or Gradle build, Kotlin and Android included; a directory with both a POM and a Gradle build is reported as Maven.
-
-| What | Maven | Gradle |
-| --- | --- | --- |
-| Name | `artifactId` | `rootProject.name` of the settings file, otherwise the directory name |
-| Version | `version` (`${revision}`-style placeholders resolved from properties and `.mvn/maven.config`) → the parent's version when the parent is in this repository → [release tooling](#release-tooling) → latest git tag | `gradle.properties` `version` → `version = "…"` → Android `versionName` + `versionCode` (`1.4.0+27`) → the build root's `gradle.properties` / build file → [release tooling](#release-tooling) → latest git tag |
-| Package manager version | Maven version from `.mvn/wrapper/maven-wrapper.properties` | Gradle version from `gradle/wrapper/gradle-wrapper.properties` |
-| Build root (`workspace-root`) | top of the `<modules>` aggregator chain | the directory whose `settings.gradle(.kts)` `include`s the project |
-| Runtime version | `.java-version` → `.sdkmanrc` → `maven.compiler.release` / `java.version` / `maven.compiler.target` / `.source` (own POM, then the aggregators) → `.tool-versions` → `mise.toml` | `.java-version` → `.sdkmanrc` → `JavaLanguageVersion.of(…)` / `jvmToolchain(…)` / `sourceCompatibility` (own build file, then the root's) → `.tool-versions` → `mise.toml` |
-| Install command | `./mvnw -B dependency:go-offline` (or `mvn`) for single-module builds; none for multi-module builds, where unbuilt sibling modules cannot be resolved | none — Gradle resolves dependencies during the build |
-
-### Release tooling
-
-Versions recorded by release tools count for every language. They rank after the manifest's own version (and a `VERSION` file) and before guessing from source code:
-
-| Tool | Read from |
-| --- | --- |
-| [release-please](https://github.com/googleapis/release-please) | `.release-please-manifest.json` in the project directory or the nearest parent (up to the repository root), entry keyed by the project's path (`.` for the root, `packages/api`, …) |
-| [bump-my-version](https://github.com/callowayproject/bump-my-version) / bump2version | `current_version` in `.bumpversion.toml`, `.bumpversion.cfg`, `pyproject.toml` `[tool.bumpversion]` or `setup.cfg` `[bumpversion]` (first found) |
-| [commitizen](https://commitizen-tools.github.io/commitizen/) | `version` in the first commitizen configuration (`pyproject.toml` `[tool.commitizen]`, `.cz.toml`, `.cz.json`, `cz.json`, `.cz.yaml`, `cz.yaml`, `cz.toml`); ignored when `version_provider` is set to anything but `commitizen` |
-
-### Git tags
-
-The git-tag fallback uses `git describe --tags --abbrev=0` restricted to release-shaped tags (`v1.2.3`, `1.2.3`, at least `MAJOR.MINOR`), so tags such as `nightly`, `latest` or a floating major tag (`v1`) are never reported as the version. A Go module in a subdirectory uses Go's tag convention — the module in `tools/` is versioned by `tools/v1.2.3` tags — and the prefix is stripped. With `actions/checkout` you need `fetch-depth: 0` (or `fetch-tags: true`) for it to see any tags.
-
-Other tag schemes are selected with `tag-pattern` — e.g. `release-*` (tags `release-1.4.0`) or `api@v*` (per-package tags `api@v2.0.1` in a monorepo). The patterns replace the defaults (including the Go module prefix), the literal part before the first wildcard is stripped, and the rest must still look like a release version.
-
-### Monorepos and parent directories
-
-When `working-directory` points into a repository, parent directories up to the repository root (or `GITHUB_WORKSPACE`, whichever is nearer) are consulted as well:
-
-- **Workspace members** — a directory listed in a parent's `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun; globs and `!` negations) or `[tool.uv.workspace] members` (minus `exclude`), a member of a cargo workspace, a pub workspace member (`resolution: workspace`), a module of a Maven aggregator or a project `include`d by a Gradle settings file — inherit the workspace root's lockfile, `packageManager` / `devEngines` / `volta` / `engines` declarations, uv settings and `[workspace.package]` values. `workspace-root` then points at that root and `install-command` is meant to run there. Declarations of the project itself always win over the root's.
-- **Runtime version files** (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `mise.toml`) are looked up in parent directories the way nvm, pyenv, asdf and mise do — nearest first, after everything declared in the project directory. Toolchain pins that decide what gets installed — `rust-toolchain(.toml)` and FVM's `.fvmrc` — win over a package's own constraint (`rust-version`, `environment.flutter`) wherever they sit up to the repository root.
-
-A nested project that is *not* a workspace member keeps its own package manager and lockfile.
-
-### Mixed repositories
-
-If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go → rust → dart → ruby → php → dotnet → java**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`, or `php` for a Laravel app with its Vite `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
-
-## Discovering projects
-
-With `discover: true` the action also inspects every directory up to `discover-max-depth` levels below `working-directory` and reports each one that contains a project in the `projects` output — a JSON array ready for a matrix. The regular outputs keep describing `working-directory` itself. Hidden directories (`.git`, `.github`, `.venv`, …), dependency and build output (`node_modules`, `vendor`, `dist`, `build`, `target`, `venv`, `__pycache__`, …) and test data (`testdata`, `fixtures`) are never descended into; add more with `discover-exclude`. `language` and `language-priority` apply to every discovered directory.
+For other sources — `setup.cfg`, `runtime.txt`, a Rust MSRV, a Flutter range, a Gemfile `ruby` line, Composer constraints, a .NET target framework, a POM/Gradle Java level — it is empty; fall back to `language-version` or a default. dart-lang/setup-dart has no version-file input.
 
 ```yaml
-jobs:
-  detect:
-    runs-on: ubuntu-latest
-    outputs:
-      projects: ${{ steps.project.outputs.projects }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: project
-        uses: emilgruzalski/detect-project@v1
-        with:
-          working-directory: apps        # every app below apps/, but not the monorepo root itself
-          discover: true
-          discover-exclude: legacy
-
-  build:
-    needs: detect
-    if: needs.detect.outputs.projects != '[]'
-    name: ${{ matrix.project.directory }} (${{ matrix.project.language }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        project: ${{ fromJSON(needs.detect.outputs.projects) }}
-    steps:
-      - uses: actions/checkout@v7
-      - if: matrix.project.language == 'node'
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: ${{ matrix.project.languageVersionFile }}
-      - name: Install dependencies
-        working-directory: ${{ matrix.project.workspaceRoot }}
-        env:
-          INSTALL_COMMAND: ${{ matrix.project.installCommand }}
-        run: $INSTALL_COMMAND
-      - name: Test
-        working-directory: ${{ matrix.project.directory }}
-        run: echo "testing ${{ matrix.project.name }} ${{ matrix.project.version }}"
-```
-
-A directory that is itself a project — e.g. a monorepo root with a `package.json` — is reported as `.`; start from a subdirectory (as above) when the root should not get a job of its own. A matrix is limited to 256 jobs.
-
-## Troubleshooting
-
-With [step debug logging](https://docs.github.com/actions/monitoring-and-troubleshooting-workflows/troubleshooting-workflows/enabling-debug-logging) enabled (`ACTIONS_STEP_DEBUG` = `true`, or *Re-run jobs → Enable debug logging*), the log shows for every resolved value where it came from and which sources had nothing, e.g.
-
-```
-[apps/api] node version: "1.4.0" from .release-please-manifest.json (nothing in: package.json:version)
-[apps/api] node runtime: "22" from ../../.nvmrc
-```
-
-## Passing the runtime to setup actions
-
-`language-version` is passed through exactly as written, which is not always valid input for `node-version` / `python-version` — a PEP 440 constraint such as `>=3.10,<3.13` is not a SemVer range. Prefer the `*-version-file` inputs with `language-version-file`: the setup action then reads the file itself. The output is only set for files that the official actions read the same value from:
-
-| Language | `language-version-file` is set for |
-| --- | --- |
-| Node.js (`node-version-file`) | `.nvmrc`, `.node-version`, `package.json` (`volta.node`, `devEngines.runtime`, `engines.node`), `.tool-versions`, `mise.toml` (`tools.node` as a string or `{ version }`) |
-| Python (`python-version-file`) | `.python-version`, `pyproject.toml` (`requires-python`, or Poetry's `python` when there is no `[project]` table), `Pipfile`, `.tool-versions` |
-| Go (`go-version-file`) | `go.mod` / `go.work` (setup-go prefers the `toolchain` directive), `.tool-versions` (`golang` entry) |
-| Flutter (`flutter-version-file` of [subosito/flutter-action](https://github.com/subosito/flutter-action)) | `.fvmrc`, `.fvm/fvm_config.json`, `pubspec.yaml` (only with an exact `environment.flutter` such as `3.24.3`) |
-| Rust (no file input) | `rust-toolchain.toml` / `rust-toolchain` — rustup and [actions-rust-lang/setup-rust-toolchain](https://github.com/actions-rust-lang/setup-rust-toolchain) without a `toolchain` input read it by themselves |
-| Ruby (no file input) | `.ruby-version`, `.tool-versions`, `mise.toml` (`tools.ruby` as a string) — [ruby/setup-ruby](https://github.com/ruby/setup-ruby) reads them itself from its `working-directory` |
-| PHP (`php-version-file` of [shivammathur/setup-php](https://github.com/shivammathur/setup-php)) | `.php-version`, `.tool-versions` |
-| .NET (`global-json-file` of actions/setup-dotnet) | `global.json` |
-| Java (`java-version-file` of actions/setup-java) | `.java-version`, `.sdkmanrc`, `.tool-versions` |
-
-For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rust `rust-version` (MSRV), a Flutter version range, a Gemfile `ruby` line, `composer.json` constraints, a .NET target framework or a POM/Gradle Java level it is empty, so fall back to `language-version` or a default. [dart-lang/setup-dart](https://github.com/dart-lang/setup-dart) only takes an `sdk` version or channel, so for pure Dart projects it is always empty; `language-version` is the `environment.sdk` constraint there. setup-php reads `composer.lock` `platform-overrides.php` and `config.platform.php` by itself when given no version.
-
-## Example: set up, install and tag
-
-```yaml
-- id: project
-  uses: emilgruzalski/detect-project@v1
-  with:
-    working-directory: apps/api
-
 - if: steps.project.outputs.language == 'node'
   uses: actions/setup-node@v7
   with:
@@ -297,8 +117,6 @@ For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rus
   uses: actions/setup-python@v7
   with:
     python-version-file: ${{ steps.project.outputs.language-version-file }}
-    cache: ${{ steps.project.outputs.package-manager == 'pip' && 'pip' || '' }}
-    cache-dependency-path: ${{ steps.project.outputs.cache-dependency-path }}
 
 - if: steps.project.outputs.language == 'go'
   uses: actions/setup-go@v7
@@ -306,20 +124,17 @@ For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rus
     go-version-file: ${{ steps.project.outputs.language-version-file }}
     cache-dependency-path: ${{ steps.project.outputs.cache-dependency-path }}
 
-# Without a `toolchain` input it installs what rust-toolchain(.toml) asks for.
 - if: steps.project.outputs.language == 'rust'
-  uses: actions-rust-lang/setup-rust-toolchain@v2
+  uses: actions-rust-lang/setup-rust-toolchain@v2   # installs what rust-toolchain(.toml) asks for
 
 - if: steps.project.outputs.package-manager == 'flutter'
   uses: subosito/flutter-action@v2
   with:
     flutter-version-file: ${{ steps.project.outputs.language-version-file }}
-    channel: stable
 
 - if: steps.project.outputs.package-manager == 'dart'
   uses: dart-lang/setup-dart@v1
 
-# Reads .ruby-version / .tool-versions / mise.toml from working-directory; installs BUNDLED WITH.
 - if: steps.project.outputs.language == 'ruby'
   uses: ruby/setup-ruby@v1
   with:
@@ -344,16 +159,24 @@ For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rus
     java-version-file: ${{ steps.project.outputs.language-version-file }}
     java-version: ${{ steps.project.outputs.language-version-file == '' && steps.project.outputs.language-version || '' }}
     cache: ${{ steps.project.outputs.package-manager }}
+```
 
-- name: Install dependencies
-  if: steps.project.outputs.install-command != ''
+### Install dependencies
+
+```yaml
+- if: steps.project.outputs.install-command != ''
   working-directory: ${{ steps.project.outputs.workspace-root }}
   env:
     INSTALL_COMMAND: ${{ steps.project.outputs.install-command }}
   run: $INSTALL_COMMAND
+```
 
-- name: Build image
-  env:
+Pass outputs to `run:` through `env:` like this rather than `${{ }}` inside the script — names and versions come from files in the repository. The commands are frozen where the tool supports it (`npm ci`, `pnpm install --frozen-lockfile`, `uv sync --locked`, `cargo fetch --locked`, …) and only when the lockfile belongs to the detected package manager. Gradle and multi-module Maven builds get none: they resolve dependencies during the build.
+
+### Tag a Docker image
+
+```yaml
+- env:
     VERSION: ${{ steps.project.outputs.version || github.sha }}
     MAJOR_MINOR: ${{ steps.project.outputs.version-major }}.${{ steps.project.outputs.version-minor }}
     PRERELEASE: ${{ steps.project.outputs.is-prerelease }}
@@ -364,50 +187,243 @@ For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rus
     docker build "${tags[@]}" .
 ```
 
-Pass outputs to `run:` through `env:` as above rather than `${{ }}` inside the script: values such as names and versions come from files in the repository.
+### Build every project of a monorepo
+
+With `discover: true` the action also inspects every directory up to `discover-max-depth` levels below `working-directory` and lists each project in `projects`, ready for a matrix. The regular outputs keep describing `working-directory` itself.
+
+```yaml
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.project.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: project
+        uses: emilgruzalski/detect-project@v1
+        with:
+          working-directory: apps   # every app below apps/, not the monorepo root itself
+          discover: true
+          discover-exclude: legacy
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.projects != '[]'
+    name: ${{ matrix.project.directory }} (${{ matrix.project.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.detect.outputs.projects) }}
+    steps:
+      - uses: actions/checkout@v7
+      - if: matrix.project.language == 'node'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ${{ matrix.project.languageVersionFile }}
+      - working-directory: ${{ matrix.project.workspaceRoot }}
+        env:
+          INSTALL_COMMAND: ${{ matrix.project.installCommand }}
+        run: $INSTALL_COMMAND
+```
+
+Hidden directories (`.git`, `.github`, `.venv`, …), dependency and build output (`node_modules`, `vendor`, `dist`, `build`, `target`, …) and test data (`testdata`, `fixtures`) are never descended into. A directory that is itself a project — such as a monorepo root with a `package.json` — is listed as `.`. `language` and `language-priority` apply to every directory; a matrix holds at most 256 jobs.
+
+## How detection works
+
+Each value comes from an ordered list of sources; the first one that has it wins, and `*-source` outputs (plus the [debug log](#troubleshooting)) say which one that was.
+
+### Parent directories and workspaces
+
+When `working-directory` points into a repository, parent directories up to the repository root (or `GITHUB_WORKSPACE`, whichever is nearer) are consulted too:
+
+- **Workspace members** inherit the workspace root's lockfile, package manager declarations and shared settings, and `workspace-root` points at that root: members of `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun), `[tool.uv.workspace]`, cargo workspaces, pub workspaces (`resolution: workspace`), Maven `<modules>` aggregators and Gradle `settings.gradle(.kts)` `include`s. The project's own declarations always win. A nested project that is *not* a member keeps its own.
+- **Runtime version files** (`.nvmrc`, `.python-version`, `.tool-versions`, …) are looked up in parent directories the way nvm, pyenv and asdf do — nearest first, after everything in the project directory. Toolchain pins that decide what gets installed — `rust-toolchain(.toml)`, FVM's `.fvmrc`, `global.json` — win over a package's own constraint wherever they sit.
+
+### Versions
+
+After the manifest's own version (and a plain `VERSION` file), release tooling is consulted for every language:
+
+| Tool | Read from |
+| --- | --- |
+| [release-please](https://github.com/googleapis/release-please) | `.release-please-manifest.json` in the project directory or the nearest parent, entry keyed by the project's path |
+| [bump-my-version](https://github.com/callowayproject/bump-my-version) / bump2version | `current_version` in `.bumpversion.toml`, `.bumpversion.cfg`, `pyproject.toml` or `setup.cfg` |
+| [commitizen](https://commitizen-tools.github.io/commitizen/) | `version` in its configuration, unless `version_provider` points elsewhere |
+
+The last resort for Go, Rust, PHP, .NET, Java and SCM-versioned Python projects is the latest **git tag**: `git describe --tags` restricted to release-shaped tags (`v1.2.3`, `1.2.3`), so `nightly` or a floating `v1` never count. A Go module in a subdirectory uses its `dir/v1.2.3` tags. `tag-pattern` selects other schemes (`release-*`, `api@v*`); the literal part before the first wildcard is stripped. With `actions/checkout`, use `fetch-depth: 0` (or `fetch-tags: true`) so tags are available.
+
+### Mixed repositories
+
+When a directory holds several languages, all are reported in `languages` and the primary one follows the order **node → python → go → rust → dart → ruby → php → dotnet → java**, with a warning. Use `language-priority` to change it — e.g. `python` for a Django app with a Tailwind `package.json`, `php` for a Laravel app with its Vite `package.json` — or `language` to consider one language only.
+
+### Per-language rules
+
+<details>
+<summary><b>Node.js</b> — <code>package.json</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Version | `version` → release tooling |
+| Package manager | `packageManager` (corepack) → `devEngines.packageManager` → lockfile (`bun.lock(b)`, `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `npm-shrinkwrap.json`) → the same from the workspace root (`pnpm-workspace.yaml` alone means pnpm) → `volta`/`engines` entry → `npm` |
+| Package manager version | `packageManager` → `devEngines` → `volta.<pm>` → `.yarnrc.yml` `yarnPath` → `engines.<pm>` → lockfile format: pnpm `lockfileVersion` 5.3 → `6`, 5.4 → `7`, 6.x → `8`, 9.x → `>=9`; Yarn v1 lockfile → `1`, Berry → `>=2` |
+| Runtime version | `.nvmrc` → `.node-version` → `volta.node` → `devEngines.runtime` → `engines.node` → `.tool-versions` → `mise.toml` |
+| Install command | `npm ci` / `npm install`, `pnpm install --frozen-lockfile`, `yarn install --immutable` (Berry) or `--frozen-lockfile` (Classic), `bun install --frozen-lockfile` |
+
+</details>
+
+<details>
+<summary><b>Python</b> — <code>pyproject.toml</code>, <code>setup.cfg</code>, <code>setup.py</code>, <code>Pipfile</code> or <code>requirements.txt</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Version | `[project] version` → `[tool.poetry] version` → dynamic version (setuptools `attr:`/`file:`, hatch `path`, pdm, flit) → `setup.cfg` → `setup.py` → `VERSION` file → release tooling → `__version__` in the project's own package → git tag (SCM-versioned projects only) |
+| Package manager | lockfile (`uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile.lock`) → uv workspace membership → `[tool.uv]` / `[tool.poetry]` / `[tool.pdm]` / `[tool.hatch.envs]` → build backend → `Pipfile` → `pip` |
+| Lockfile | the above, then PEP 751 `pylock.toml` / `pylock.<name>.toml`; uv workspace members get the root `uv.lock` |
+| Package manager version | `poetry.lock` header → `requires-poetry` → `[tool.uv] required-version` |
+| Runtime version | `.python-version` → `requires-python` → Poetry `python` → `Pipfile` `[requires]` → `setup.cfg` `python_requires` → `runtime.txt` → `.tool-versions` → `mise.toml` |
+| Install command | `uv sync --locked` (`--package <name>` for workspace members), `poetry install`, `pdm sync`/`install`, `hatch env create`, `pipenv install --deploy`, `pip install -r requirements.txt` / `pip install .` |
+
+The `__version__` scan only reads the project's own package — the module named after the project (`my-app` → `my_app`, in the root or `src/`) or the single top-level package — never `tests/`, `vendor/`, `third_party/` and the like.
+
+</details>
+
+<details>
+<summary><b>Go</b> — <code>go.mod</code>, <code>go.work</code> or <code>Gopkg.toml</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | `module` directive |
+| Version | `VERSION` file → release tooling → `Version` constant in `version.go`, `internal/version/version.go`, `cmd/**/version.go`, … (placeholders such as `"dev"` are ignored) → package-level `var version = "X.Y…"` in `main.go` / `cmd/*/main.go` → git tag |
+| Package manager | `go`, or `dep` for `Gopkg.toml`; version from the `toolchain` directive |
+| Runtime version | `go` directive → `toolchain` → `.tool-versions` → `mise.toml` |
+| Install command | `go mod download` (`dep ensure`; none for a bare `go.work`) |
+
+</details>
+
+<details>
+<summary><b>Rust</b> — <code>Cargo.toml</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | `[package] name` (empty for a virtual workspace root) |
+| Version | `[package] version` → `[workspace.package] version` (`version.workspace = true`, virtual roots) → release tooling → git tag |
+| Lockfile | `Cargo.lock` of the package, else of its cargo workspace root (own `[workspace]`, `package.workspace`, or the nearest parent `[workspace]` that does not `exclude` it) |
+| Runtime version | `rust-toolchain.toml` / `rust-toolchain` up to the repository root, as rustup resolves them → `rust-version` (MSRV, incl. workspace inheritance) → `.tool-versions` → `mise.toml` |
+| Install command | `cargo fetch --locked` with a `Cargo.lock`, else `cargo fetch` |
+
+</details>
+
+<details>
+<summary><b>Dart / Flutter</b> — <code>pubspec.yaml</code></summary>
+
+`language` is `dart` for both; `package-manager` is `flutter` when the project depends on the Flutter SDK, constrains `environment.flutter` or has a `flutter:` section.
+
+| What | Sources, in priority order |
+| --- | --- |
+| Version | `version` as written (`1.4.0+27` → `version-build` `27`) → release tooling |
+| Lockfile | `pubspec.lock`, else the [pub workspace](https://dart.dev/tools/pub/workspaces) root's (members declare `resolution: workspace`) |
+| Runtime version (Flutter) | the Flutter SDK version: FVM `.fvmrc` / `.fvm/fvm_config.json` up to the repository root → `environment.flutter` → `.tool-versions` → `mise.toml` |
+| Runtime version (Dart) | `environment.sdk` → `.tool-versions` → `mise.toml` |
+| Install command | `flutter pub get` / `dart pub get`, `--enforce-lockfile` with a lockfile |
+
+`pubspec.yaml` is read with the YAML failsafe schema, so `version: 1.10` stays `1.10`.
+
+</details>
+
+<details>
+<summary><b>Ruby</b> — <code>Gemfile</code>, <code>gems.rb</code> or a <code>*.gemspec</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | gemspec `spec.name` or `Gem::Specification.new "…"` (empty for apps) |
+| Version | gemspec literal → `VERSION` in `lib/<name>/version.rb` → `VERSION` file → release tooling |
+| Package manager | `bundler`, version from `BUNDLED WITH` |
+| Runtime version | `.ruby-version` → Gemfile `ruby "…"` / `ruby file:` → `Gemfile.lock` `RUBY VERSION` → `.tool-versions` → `mise.toml` |
+| Install command | `bundle install` (none for a gemspec without a Gemfile) |
+
+</details>
+
+<details>
+<summary><b>PHP</b> — <code>composer.json</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Version | `version` → release tooling → git tag |
+| Runtime version | `.php-version` → `composer.lock` `platform-overrides.php` → `config.platform.php` (setup-php's order) → `require.php` → `.tool-versions` → `mise.toml` |
+| Install command | `composer install --no-interaction` |
+
+</details>
+
+<details>
+<summary><b>.NET</b> — <code>*.sln</code> / <code>*.slnx</code>, else <code>*.csproj</code> / <code>*.fsproj</code> / <code>*.vbproj</code></summary>
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | `PackageId` → `AssemblyName` → file name |
+| Version | project `Version` / `VersionPrefix`[-`VersionSuffix`] → the same in the nearest `Directory.Build.props` and the local files it imports → Nerdbank.GitVersioning `version.json` → release tooling → git tag; conditional and computed (`$(…)`) values are skipped |
+| Lockfile | `packages.lock.json` |
+| Runtime version | `global.json` `sdk.version` up to the repository root → highest target framework (`net8.0` → `8.0`) → `.tool-versions` → `mise.toml` |
+| Install command | `dotnet restore` (naming the file when there are several; `--locked-mode` with a lockfile) |
+
+</details>
+
+<details>
+<summary><b>Java / JVM</b> — <code>pom.xml</code>, else <code>build.gradle(.kts)</code> / <code>settings.gradle(.kts)</code></summary>
+
+`language` is `java` for every Maven or Gradle build, Kotlin and Android included; a directory with both is reported as Maven.
+
+| What | Maven | Gradle |
+| --- | --- | --- |
+| Name | `artifactId` | `rootProject.name`, else the directory name |
+| Version | `version` (`${revision}` resolved from properties and `.mvn/maven.config`) → in-repo parent's version → release tooling → git tag | `gradle.properties` `version` → `version = "…"` → Android `versionName+versionCode` → the build root's → release tooling → git tag |
+| Tool version | `.mvn/wrapper/maven-wrapper.properties` | `gradle/wrapper/gradle-wrapper.properties` |
+| `workspace-root` | top of the `<modules>` aggregator chain | the directory whose settings file `include`s the project |
+| Runtime version | `.java-version` → `.sdkmanrc` → `maven.compiler.release` / `java.version` / `…target` / `…source` → `.tool-versions` → `mise.toml` | `.java-version` → `.sdkmanrc` → `JavaLanguageVersion.of(…)` / `jvmToolchain(…)` / `sourceCompatibility` → `.tool-versions` → `mise.toml` |
+| Install command | `./mvnw -B dependency:go-offline` (or `mvn`) for single-module builds | none |
+
+</details>
+
+## Troubleshooting
+
+With [step debug logging](https://docs.github.com/actions/monitoring-and-troubleshooting-workflows/troubleshooting-workflows/enabling-debug-logging) enabled (`ACTIONS_STEP_DEBUG` = `true`, or *Re-run jobs → Enable debug logging*), the log shows where every value came from and which sources had nothing:
+
+```
+[apps/api] node version: "1.4.0" from .release-please-manifest.json (nothing in: package.json:version)
+[apps/api] node runtime: "22" from ../../.nvmrc
+```
 
 ## Development
 
-Requires Node.js 24 (see `.node-version`) and [Bun](https://bun.sh) as the package manager (version pinned in `packageManager`). Scripts run on Node; Bun only installs dependencies and runs scripts.
+Requires Node.js 24 (`.node-version`) and [Bun](https://bun.sh) (pinned in `packageManager`); scripts run on Node, Bun installs dependencies and runs scripts.
 
 ```bash
 bun install
 bun run typecheck
-bun run test          # vitest unit tests
-bun run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
-bun run test:e2e      # e2e tests that run the bundled dist/index.js like the runner does
-bun run test:corpus   # real-world corpus: pinned commits of popular repos vs. a snapshot (needs network)
-bun run local-action  # runs the action locally via @github/local-action using inputs from .env
+bun run test          # unit tests (vitest)
+bun run package       # bundle src/ into dist/index.js (rollup)
+bun run test:e2e      # run the bundled dist/index.js like the runner does
+bun run test:corpus   # pinned commits of popular repositories vs. a snapshot (needs network)
+bun run all           # typecheck, test, package, test:e2e
+bun run local-action  # run the action locally with inputs from .env (see .env.example)
 ```
 
-`dist/` is committed (GitHub runs the action straight from it, no dependency install on the runner); CI fails if it is out of date, so run `bun run package` before committing source changes. To try the action locally, copy `.env.example` to `.env` and run `bun run local-action`.
-
-The e2e scenarios live in `__tests__/e2e-scenarios.json`; both `bun run test:e2e` and the CI `e2e` matrix read them, so a scenario is added in one place. The corpus (`__tests__/corpus/corpus.json`) runs weekly, on demand and on pull requests that touch `src/`; after a deliberate behaviour change, review the diff and update the snapshot with `bun run test:corpus -u`.
-
-Source layout:
+- `dist/` is committed — GitHub runs it directly — and CI fails when it is stale, so run `bun run package` before committing source changes.
+- The e2e scenarios live in `__tests__/e2e-scenarios.json`, shared by `bun run test:e2e` and the CI matrix.
+- The corpus (`__tests__/corpus/corpus.json`) runs weekly, on demand and on pull requests touching `src/`; after a deliberate behaviour change, review the diff and update it with `bun run test:corpus -u`.
+- A new language is a `Detector` (`src/types.ts`) registered — at the end, so primary languages never change — in `src/detectors/index.ts`.
 
 ```
 src/
-  index.ts             # runtime entry: calls run() and reports failures
-  main.ts              # run(): inputs → detection → outputs + job summary
-  detect.ts            # runs the detectors, picks the primary language
-  discover.ts          # walks subdirectories for the discover input
-  detectors/
-    node.ts python.ts go.ts rust.ts dart.ts ruby.ts php.ts dotnet.ts java.ts
-  utils/
-    sources.ts         # resolveFirst(): ordered, named value sources with debug logging
-    release-tools.ts   # release-please / bump-my-version / commitizen versions
-    runtime.ts         # runtime version files, walking up to the repository root
-    fs.ts ...          # cached fs helpers, TOML/INI parsing, version handling, workspace globs
-__tests__/             # vitest suites (e2e.test.ts runs dist/, corpus.test.ts clones real repos) + fixtures
+  main.ts          inputs → detection → outputs and job summary
+  detect.ts        runs the detectors, picks the primary language
+  discover.ts      walks subdirectories for `discover`
+  detectors/       one file per ecosystem
+  utils/           sources (ordered values + debug log), release tooling, runtime files, fs cache, TOML/INI/XML, globs
+__tests__/         vitest suites, fixtures, e2e scenarios, corpus
 ```
-
-Adding a language means implementing the `Detector` interface from `src/types.ts` and registering it in `src/detectors/index.ts`.
 
 ## Releasing
 
-1. Bump `version` in `package.json`, add an entry to [CHANGELOG.md](CHANGELOG.md), run `bun run all`, commit (including `dist/`).
-2. Create a GitHub release with a `vMAJOR.MINOR.PATCH` tag (e.g. `v1.2.0`). Tick **Publish this Action to the GitHub Marketplace** on the release form if you want it listed.
-3. The [Release workflow](.github/workflows/release.yml) verifies that `dist/` is fresh and force-moves the floating major tag (`v1`) to that release, so `uses: …@v1` users get the update.
-
-Pre-releases (e.g. `v2.0.0-rc.1`) never move a major tag. Major tags are plain git tags without a GitHub release, which keeps them movable even with immutable releases enabled.
+1. Bump `version` in `package.json`, add a [CHANGELOG](CHANGELOG.md) entry, run `bun run all` and commit (including `dist/`).
+2. Publish a GitHub release with a `vMAJOR.MINOR.PATCH` tag; tick **Publish this Action to the GitHub Marketplace** to update the listing.
+3. The [Release workflow](.github/workflows/release.yml) checks that `dist/` is fresh and moves the major tag (`v1`) to the release, so `@v1` users get it. Pre-releases never move a major tag.
