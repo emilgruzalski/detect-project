@@ -1,8 +1,9 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext, PackageManager } from '../types.js'
-import { firstExisting, isFile, readJson, readText } from '../utils/fs.js'
-import { miseRuntime, toolVersionsRuntime, versionFileRuntime } from '../utils/runtime.js'
+import { ancestors, firstExisting, isFile, readJson, readText, relPosix } from '../utils/fs.js'
+import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, versionFileRuntime, type RuntimeHit } from '../utils/runtime.js'
 import { cleanVersion } from '../utils/version.js'
+import { matchesWorkspacePatterns, parsePnpmWorkspacePackages } from '../utils/workspace.js'
 
 type NodePackageManager = Extract<PackageManager, 'npm' | 'yarn' | 'pnpm' | 'bun'>
 
@@ -12,7 +13,8 @@ interface PackageJson {
   packageManager?: unknown
   engines?: Record<string, unknown>
   volta?: Record<string, unknown>
-  devEngines?: { packageManager?: unknown }
+  devEngines?: { packageManager?: unknown; runtime?: unknown }
+  workspaces?: unknown
 }
 
 /** Lockfiles in priority order — the first one found wins. */
@@ -24,11 +26,16 @@ const LOCKFILES: ReadonlyArray<{ file: string; pm: NodePackageManager }> = [
   { file: 'package-lock.json', pm: 'npm' },
   { file: 'npm-shrinkwrap.json', pm: 'npm' },
 ]
+const LOCKFILE_NAMES = LOCKFILES.map((l) => l.file)
 
 const NODE_PMS: readonly NodePackageManager[] = ['npm', 'yarn', 'pnpm', 'bun']
 
 function isNodePm(value: string): value is NodePackageManager {
   return (NODE_PMS as readonly string[]).includes(value)
+}
+
+function lockfilePm(file: string | undefined): NodePackageManager | undefined {
+  return file ? LOCKFILES.find((l) => l.file === path.basename(file))?.pm : undefined
 }
 
 /** Parses the `packageManager` field (`pnpm@9.1.0+sha512...`) into name and version. */
@@ -41,6 +48,33 @@ export function parsePackageManagerField(value: unknown): { pm: NodePackageManag
   return { pm: name, version: cleanVersion(version) }
 }
 
+/** `devEngines.packageManager` / `devEngines.runtime` hold either one entry or an array of alternatives. */
+function devEngineEntries(value: unknown): Array<{ name?: unknown; version?: unknown }> {
+  return (Array.isArray(value) ? value : [value]).filter(
+    (e): e is { name?: unknown; version?: unknown } => !!e && typeof e === 'object' && !Array.isArray(e),
+  )
+}
+
+/** Package manager declared explicitly: `packageManager` (corepack), then `devEngines.packageManager`. */
+function declaredPackageManager(pkg: PackageJson | undefined): { pm: NodePackageManager; version: string } | undefined {
+  if (!pkg) return undefined
+  const explicit = parsePackageManagerField(pkg.packageManager)
+  if (explicit) return explicit
+  for (const { name, version } of devEngineEntries(pkg.devEngines?.packageManager)) {
+    if (typeof name === 'string' && isNodePm(name)) return { pm: name, version: typeof version === 'string' ? version.trim() : '' }
+  }
+  return undefined
+}
+
+/** A package manager named in `volta` or `engines` (e.g. `engines.pnpm`). */
+function packageManagerNamedIn(pkg: PackageJson | undefined): NodePackageManager | undefined {
+  for (const source of [pkg?.volta, pkg?.engines]) {
+    const hit = NODE_PMS.find((pm) => typeof source?.[pm] === 'string')
+    if (hit) return hit
+  }
+  return undefined
+}
+
 /** Yarn Berry pins its own binary in `.yarnrc.yml` (`yarnPath: .yarn/releases/yarn-3.6.4.cjs`). */
 async function yarnVersionFromRc(dir: string): Promise<string | undefined> {
   const rc = await readText(path.join(dir, '.yarnrc.yml'))
@@ -49,76 +83,125 @@ async function yarnVersionFromRc(dir: string): Promise<string | undefined> {
   return match?.[1]
 }
 
-async function nodeVersion(dir: string, pkg: PackageJson): Promise<string> {
-  const fromFile = await versionFileRuntime(dir, ['.nvmrc', '.node-version'])
-  if (fromFile) return fromFile
+/** Yarn 2+ ("Berry") vs Yarn 1 ("Classic"): they need different frozen-install flags. */
+async function isYarnBerry(root: string, version: string, lockfile: string | undefined): Promise<boolean> {
+  const major = /(\d+)/.exec(version)?.[1]
+  if (major) return Number(major) >= 2
+  if (await isFile(path.join(root, '.yarnrc.yml'))) return true
+  if (lockfile && path.basename(lockfile) === 'yarn.lock') return /^__metadata:/m.test((await readText(lockfile)) ?? '')
+  return false
+}
+
+function installCommand(pm: NodePackageManager, frozen: boolean, yarnBerry: boolean): string {
+  switch (pm) {
+    case 'npm':
+      return frozen ? 'npm ci' : 'npm install'
+    case 'pnpm':
+      return frozen ? 'pnpm install --frozen-lockfile' : 'pnpm install'
+    case 'yarn':
+      if (!frozen) return 'yarn install'
+      return yarnBerry ? 'yarn install --immutable' : 'yarn install --frozen-lockfile'
+    case 'bun':
+      return frozen ? 'bun install --frozen-lockfile' : 'bun install'
+  }
+}
+
+/** Node runtime declared in package.json, in the order setup-node reads it: volta → devEngines → engines. */
+function packageJsonRuntime(dir: string, pkg: PackageJson | undefined): RuntimeHit | undefined {
+  if (!pkg) return undefined
+  const file = path.join(dir, 'package.json')
   const volta = pkg.volta?.['node']
-  if (typeof volta === 'string') return cleanVersion(volta)
+  if (typeof volta === 'string' && volta.trim()) return { value: cleanVersion(volta), file, field: 'volta.node', setupReadable: true }
+  const runtime = devEngineEntries(pkg.devEngines?.runtime).find(
+    (e) => typeof e.name === 'string' && e.name.toLowerCase() === 'node' && typeof e.version === 'string' && e.version.trim(),
+  )
+  if (runtime) return { value: (runtime.version as string).trim(), file, field: 'devEngines.runtime', setupReadable: true }
   const engines = pkg.engines?.['node']
-  if (typeof engines === 'string') return engines.trim()
-  return (await toolVersionsRuntime(dir, 'node')) ?? (await miseRuntime(dir, 'node')) ?? ''
+  if (typeof engines === 'string' && engines.trim()) return { value: engines.trim(), file, field: 'engines.node', setupReadable: true }
+  return undefined
+}
+
+function workspacePatterns(pkg: PackageJson | undefined): string[] {
+  const ws = pkg?.workspaces
+  const list = Array.isArray(ws) ? ws : ws && typeof ws === 'object' ? (ws as { packages?: unknown }).packages : undefined
+  return Array.isArray(list) ? list.filter((p): p is string => typeof p === 'string') : []
+}
+
+interface NodeWorkspace {
+  dir: string
+  pkg: PackageJson | undefined
+  /** Declared through `pnpm-workspace.yaml`, which implies pnpm. */
+  pnpm: boolean
+}
+
+/**
+ * Nearest parent directory (within the walk boundary) whose workspace definition — `pnpm-workspace.yaml`
+ * or `package.json#workspaces` (npm, Yarn, Bun) — includes `dir` as a member.
+ */
+async function findWorkspace({ dir, boundary }: DetectorContext): Promise<NodeWorkspace | undefined> {
+  for (const level of ancestors(dir, boundary ?? dir)) {
+    const rel = relPosix(level, dir)
+    const pkg = await readJson<PackageJson>(path.join(level, 'package.json'))
+    const pnpmWorkspace = await readText(path.join(level, 'pnpm-workspace.yaml'))
+    if (pnpmWorkspace !== undefined && matchesWorkspacePatterns(parsePnpmWorkspacePackages(pnpmWorkspace), rel)) {
+      return { dir: level, pkg, pnpm: true }
+    }
+    if (matchesWorkspacePatterns(workspacePatterns(pkg), rel)) return { dir: level, pkg, pnpm: false }
+  }
+  return undefined
 }
 
 export const nodeDetector: Detector = {
   language: 'node',
-  async detect({ dir }: DetectorContext): Promise<Detection | undefined> {
+  async detect(ctx: DetectorContext): Promise<Detection | undefined> {
+    const { dir } = ctx
     const manifest = 'package.json'
     if (!(await isFile(path.join(dir, manifest)))) return undefined
     const pkg = (await readJson<PackageJson>(path.join(dir, manifest))) ?? {}
+    const workspace = await findWorkspace(ctx)
+    const rootPkg = workspace?.pkg
 
+    // Lockfile: the project's own, otherwise the workspace root's (members share the root lockfile).
+    const ownLock = await firstExisting(dir, LOCKFILE_NAMES)
+    const rootLock = workspace ? await firstExisting(workspace.dir, LOCKFILE_NAMES) : undefined
+    const lockfilePath = ownLock ? path.join(dir, ownLock) : rootLock && workspace ? path.join(workspace.dir, rootLock) : undefined
+
+    // Package manager: explicit declarations beat lockfiles; the project beats its workspace root.
     let packageManager: NodePackageManager | undefined
     let packageManagerVersion = ''
-
-    // 1. Explicit `packageManager` field (corepack) — the most authoritative source.
-    const explicit = parsePackageManagerField(pkg.packageManager)
-    if (explicit) {
-      packageManager = explicit.pm
-      packageManagerVersion = explicit.version
+    const declared = declaredPackageManager(pkg)
+    if (declared) ({ pm: packageManager, version: packageManagerVersion } = declared)
+    packageManager ??= lockfilePm(ownLock)
+    if (!packageManager && workspace) {
+      const rootDeclared = declaredPackageManager(rootPkg)
+      if (rootDeclared) ({ pm: packageManager, version: packageManagerVersion } = rootDeclared)
+      else packageManager = lockfilePm(rootLock) ?? (workspace.pnpm ? 'pnpm' : undefined)
     }
-
-    // 2. `devEngines.packageManager` (npm 10.9+ / Node 22 devEngines proposal).
-    if (!packageManager) {
-      const devEngine = pkg.devEngines?.packageManager
-      const candidate = Array.isArray(devEngine) ? devEngine[0] : devEngine
-      if (candidate && typeof candidate === 'object') {
-        const { name, version } = candidate as { name?: unknown; version?: unknown }
-        if (typeof name === 'string' && isNodePm(name)) {
-          packageManager = name
-          if (typeof version === 'string') packageManagerVersion = version.trim()
-        }
-      }
-    }
-
-    // 3. Lockfile.
-    const lockfile = (await firstExisting(dir, LOCKFILES.map((l) => l.file))) ?? ''
-    if (!packageManager && lockfile) {
-      packageManager = LOCKFILES.find((l) => l.file === lockfile)?.pm
-    }
-
-    // 4. `volta` / `engines` entries naming a package manager.
-    if (!packageManager) {
-      for (const source of [pkg.volta, pkg.engines]) {
-        const hit = NODE_PMS.find((pm) => typeof source?.[pm] === 'string')
-        if (hit) {
-          packageManager = hit
-          break
-        }
-      }
-    }
-
-    // 5. Default.
-    packageManager ??= 'npm'
+    packageManager ??= packageManagerNamedIn(pkg) ?? packageManagerNamedIn(rootPkg) ?? 'npm'
 
     // Fill in the package manager version from secondary sources when it is still unknown.
     if (!packageManagerVersion) {
-      const volta = pkg.volta?.[packageManager]
-      const engines = pkg.engines?.[packageManager]
-      if (typeof volta === 'string') packageManagerVersion = cleanVersion(volta)
-      else if (packageManager === 'yarn') packageManagerVersion = (await yarnVersionFromRc(dir)) ?? ''
-      if (!packageManagerVersion && typeof engines === 'string') packageManagerVersion = engines.trim()
+      const pm = packageManager
+      const volta = [pkg, rootPkg].map((p) => p?.volta?.[pm]).find((v): v is string => typeof v === 'string')
+      if (volta) packageManagerVersion = cleanVersion(volta)
+      else if (pm === 'yarn') packageManagerVersion = (await yarnVersionFromRc(dir)) ?? (workspace ? await yarnVersionFromRc(workspace.dir) : undefined) ?? ''
+      const engines = [pkg, rootPkg].map((p) => p?.engines?.[pm]).find((v): v is string => typeof v === 'string')
+      if (!packageManagerVersion && engines) packageManagerVersion = engines.trim()
     }
 
+    const installRoot = workspace?.dir ?? dir
+    const frozen = lockfilePm(lockfilePath) === packageManager
+    const yarnBerry = packageManager === 'yarn' && (await isYarnBerry(installRoot, packageManagerVersion, lockfilePath))
+
+    const runtime = await resolveRuntime(ctx, (level) => [
+      () => versionFileRuntime(level, ['.nvmrc', '.node-version']),
+      () => packageJsonRuntime(level, level === dir ? pkg : level === workspace?.dir ? rootPkg : undefined),
+      () => toolVersionsRuntime(level, 'node'),
+      () => miseRuntime(level, 'node'),
+    ])
+
     const version = typeof pkg.version === 'string' ? cleanVersion(pkg.version) : ''
+    const lockfile = lockfilePath ? relPosix(dir, lockfilePath) : ''
 
     return {
       language: 'node',
@@ -127,9 +210,12 @@ export const nodeDetector: Detector = {
       versionSource: version ? manifest : '',
       packageManager,
       packageManagerVersion,
-      languageVersion: await nodeVersion(dir, pkg),
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: relPosix(dir, installRoot),
+      installCommand: installCommand(packageManager, frozen, yarnBerry),
+      cacheDependencyPath: lockfile,
     }
   },
 }

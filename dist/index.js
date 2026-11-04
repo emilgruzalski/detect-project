@@ -33,8 +33,8 @@ import require$$1$5 from 'node:dns';
 import require$$5$3 from 'string_decoder';
 import * as child from 'child_process';
 import { setTimeout as setTimeout$1 } from 'timers';
-import * as path$1 from 'node:path';
 import * as fs$1 from 'node:fs/promises';
+import * as path$1 from 'node:path';
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28689,7 +28689,7 @@ const { chmod, copyFile, lstat, mkdir, open, readdir, rename, rm, rmdir, stat, s
 // export const {open} = 'fs'
 const IS_WINDOWS$1 = process.platform === 'win32';
 fs.constants.O_RDONLY;
-function exists(fsPath) {
+function exists$1(fsPath) {
     return __awaiter$3(this, void 0, void 0, function* () {
         try {
             yield stat(fsPath);
@@ -29290,7 +29290,7 @@ class ToolRunner extends events$1.EventEmitter {
                 state.on('debug', (message) => {
                     this._debug(message);
                 });
-                if (this.options.cwd && !(yield exists(this.options.cwd))) {
+                if (this.options.cwd && !(yield exists$1(this.options.cwd))) {
                     return reject(new Error(`The cwd: ${this.options.cwd} does not exist!`));
                 }
                 const fileName = this._getSpawnFileName();
@@ -29650,7 +29650,17 @@ function info(message) {
     process.stdout.write(message + os.EOL);
 }
 
-function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
+function _nullishCoalesce$9(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
+/** True when `file` exists as any kind of entry (file, directory, symlink). */
+async function exists(file) {
+  try {
+    await fs$1.lstat(file);
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
 async function isFile(file) {
   try {
     return (await fs$1.stat(file)).isFile()
@@ -29662,7 +29672,7 @@ async function isFile(file) {
 async function readText(file) {
   try {
     return await fs$1.readFile(file, 'utf8')
-  } catch (e3) {
+  } catch (e4) {
     return undefined
   }
 }
@@ -29672,7 +29682,7 @@ async function readJson(file) {
   if (text === undefined) return undefined
   try {
     return JSON.parse(text) 
-  } catch (e4) {
+  } catch (e5) {
     return undefined
   }
 }
@@ -29694,6 +29704,45 @@ async function readVersionFile(file) {
     .map((l) => l.trim())
     .find((l) => l.length > 0 && !l.startsWith('#'));
   return line
+}
+
+/** `path.relative` with forward slashes; `.` when both paths are the same directory. */
+function relPosix(from, to) {
+  return path$1.relative(from, to).split(path$1.sep).join('/') || '.'
+}
+
+/** True when `child` is `parent` itself or lies somewhere below it. */
+function isInside(child, parent) {
+  const rel = path$1.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path$1.isAbsolute(rel))
+}
+
+/**
+ * Parent directories of `dir`, nearest first, up to and including `boundary`.
+ * Empty when `dir` is the boundary or does not lie inside it.
+ */
+function ancestors(dir, boundary) {
+  if (!isInside(dir, boundary)) return []
+  const result = [];
+  let current = dir;
+  while (path$1.relative(boundary, current) !== '') {
+    const parent = path$1.dirname(current);
+    if (parent === current) break
+    result.push(parent);
+    current = parent;
+  }
+  return result
+}
+
+/** Nearest directory at or above `dir` that contains a `.git` entry (directory, or file for worktrees/submodules). */
+async function findGitRoot(dir) {
+  let current = path$1.resolve(dir);
+  for (;;) {
+    if (await exists(path$1.join(current, '.git'))) return current
+    const parent = path$1.dirname(current);
+    if (parent === current) return undefined
+    current = parent;
+  }
 }
 
 
@@ -29723,7 +29772,7 @@ const DEFAULT_IGNORE = [
 
 /** Breadth-first walk over files under `dir`, yielding paths relative to `dir`. */
 async function walkFiles(dir, opts) {
-  const ignore = new Set(_nullishCoalesce$5(opts.ignore, () => ( DEFAULT_IGNORE)));
+  const ignore = new Set(_nullishCoalesce$9(opts.ignore, () => ( DEFAULT_IGNORE)));
   const results = [];
   let frontier = [''];
   for (let depth = 0; depth <= opts.maxDepth && frontier.length > 0; depth++) {
@@ -29732,7 +29781,7 @@ async function walkFiles(dir, opts) {
       let entries;
       try {
         entries = await fs$1.readdir(path$1.join(dir, rel), { withFileTypes: true });
-      } catch (e5) {
+      } catch (e6) {
         continue
       }
       for (const entry of entries) {
@@ -30786,7 +30835,7 @@ function parse(toml, options = {}) {
     return res;
 }
 
-function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$8(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$6(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /** Normalises things like `v1.2.3`, `"1.2.3"`, `== 1.2.3` into `1.2.3`. Returns empty string for empty input. */
 function cleanVersion(raw) {
   if (!raw) return ''
@@ -30797,21 +30846,50 @@ function cleanVersion(raw) {
   return v
 }
 
-/** Extracts `__version__ = "1.2.3"` / `Version = "1.2.3"` style assignments from source code. */
+/**
+ * Extracts `__version__ = "1.2.3"` / `Version = "1.2.3"` style assignments from source code.
+ * Accepts type annotations in Python/TypeScript style (`__version__: str = …`, `version: string = …`)
+ * and Go style (`var Version string = …`, `const Version string = …`).
+ */
 function extractAssignedVersion(source, identifiers) {
   for (const id of identifiers) {
-    const re = new RegExp(`(?:^|[\\s(,])${id}\\s*(?::\\s*(?:str|string))?\\s*=\\s*["'\`]([^"'\`\\n]+)["'\`]`, 'm');
+    const re = new RegExp(
+      `(?:^|[\\s(,])${id}(?:\\s*:\\s*(?:str|string)|[ \\t]+string)?\\s*=\\s*["'\`]([^"'\`\\n]+)["'\`]`,
+      'm',
+    );
     const match = re.exec(source);
-    if (_optionalChain$4([match, 'optionalAccess', _ => _[1]])) return cleanVersion(match[1])
+    if (_optionalChain$6([match, 'optionalAccess', _ => _[1]])) return cleanVersion(match[1])
   }
   return undefined
 }
 
-/** Latest reachable git tag (via `git describe`), or undefined when the repo has no tags / is not a repo. */
-async function gitDescribeTag(cwd) {
+/**
+ * True for values that look like a release version: at least `MAJOR.MINOR`, optionally followed by
+ * a pre-release / build / PEP 440 suffix. Rejects tags such as `nightly`, `latest` or a floating `v1`.
+ */
+function looksLikeReleaseVersion(value) {
+  return /^\d+(?:\.\d+)+(?:[-+._]?[0-9A-Za-z][0-9A-Za-z.+_-]*)?$/.test(value)
+}
+
+/** Escapes wildmatch metacharacters so a directory prefix is matched literally by `git describe --match`. */
+function escapeGlob(value) {
+  return value.replace(/[*?[\]\\]/g, '\\$&')
+}
+
+/**
+ * Latest reachable release tag (via `git describe`), or undefined when the repository has no matching
+ * tag or `cwd` is not inside a repository.
+ *
+ * Only tags shaped like `vX.Y…` / `X.Y…` are considered, so `nightly` or a floating `v1` major tag are
+ * never reported. `prefix` selects tags of a nested module (Go convention: `sub/dir/v1.2.3` for the module
+ * in `sub/dir`); it is stripped from the result.
+ */
+async function gitDescribeTag(cwd, prefix = '') {
+  const escaped = escapeGlob(prefix);
+  const patterns = [`${escaped}v[0-9]*.[0-9]*`, `${escaped}[0-9]*.[0-9]*`];
   let out = '';
   try {
-    const code = await exec('git', ['describe', '--tags', '--abbrev=0'], {
+    const code = await exec('git', ['describe', '--tags', '--abbrev=0', ...patterns.flatMap((p) => ['--match', p])], {
       cwd,
       silent: true,
       ignoreReturnCode: true,
@@ -30821,11 +30899,74 @@ async function gitDescribeTag(cwd) {
   } catch (e) {
     return undefined
   }
-  const tag = out.trim();
-  return tag ? cleanVersion(tag) : undefined
+  let tag = out.trim();
+  if (!tag) return undefined
+  if (prefix) {
+    if (!tag.startsWith(prefix)) return undefined
+    tag = tag.slice(prefix.length);
+  }
+  const version = cleanVersion(tag);
+  return looksLikeReleaseVersion(version) ? version : undefined
 }
 
-function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
+
+
+
+
+
+
+
+
+
+
+
+const NO_PARTS = { major: '', minor: '', patch: '', prerelease: '', build: '', isPrerelease: false };
+
+/**
+ * Splits a SemVer or PEP 440 version into its components. Missing minor/patch components are `0`
+ * (`1.4` → 1/4/0); extra numeric components are ignored; a PEP 440 epoch (`1!`) is dropped.
+ * PEP 440 post-releases (`1.0.post1`) count as final releases. Returns empty parts for values that do
+ * not start with a number.
+ */
+function splitVersion(version) {
+  const m = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.\d+)*(.*)$/.exec(version.trim().replace(/^\d+!/, ''));
+  if (!m) return { ...NO_PARTS }
+  let rest = _nullishCoalesce$8(m[4], () => ( ''));
+  let build = '';
+  const plus = rest.indexOf('+');
+  if (plus >= 0) {
+    build = rest.slice(plus + 1);
+    rest = rest.slice(0, plus);
+  }
+  let prerelease = rest.replace(/^[-._]/, '');
+  if (/^(?:post|rev|r)\d*$/i.test(prerelease)) prerelease = '';
+  return {
+    major: _nullishCoalesce$8(m[1], () => ( '')),
+    minor: _nullishCoalesce$8(m[2], () => ( '0')),
+    patch: _nullishCoalesce$8(m[3], () => ( '0')),
+    prerelease,
+    build,
+    isPrerelease: prerelease !== '',
+  }
+}
+
+function _nullishCoalesce$7(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$5(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /** Runtime names as they appear in `.tool-versions` (asdf) and `mise.toml`. */
 const ASDF_NAMES = {
   node: ['nodejs', 'node'],
@@ -30833,24 +30974,37 @@ const ASDF_NAMES = {
   go: ['golang', 'go'],
 };
 
-/** Looks up a runtime version in asdf's `.tool-versions`. */
+/** `.tool-versions` names the setup actions understand (setup-go only matches `golang`). */
+const TOOL_VERSIONS_READABLE = {
+  node: ['nodejs', 'node'],
+  python: ['python'],
+  go: ['golang'],
+};
+
+/** Looks up a runtime version in asdf's `.tool-versions` in `dir`. */
 async function toolVersionsRuntime(dir, runtime) {
-  const text = await readText(path$1.join(dir, '.tool-versions'));
+  const file = path$1.join(dir, '.tool-versions');
+  const text = await readText(file);
   if (!text) return undefined
-  const names = _nullishCoalesce$4(ASDF_NAMES[runtime], () => ( []));
   for (const line of text.split(/\r?\n/)) {
     const trimmed = line.replace(/#.*$/, '').trim();
     if (!trimmed) continue
     const [name, ...versions] = trimmed.split(/\s+/);
-    if (name && names.includes(name) && versions[0]) return cleanVersion(versions[0])
+    if (name && ASDF_NAMES[runtime].includes(name) && versions[0]) {
+      return { value: cleanVersion(versions[0]), file, field: '', setupReadable: TOOL_VERSIONS_READABLE[runtime].includes(name) }
+    }
   }
   return undefined
 }
 
-/** Looks up a runtime version in `mise.toml` / `.mise.toml` (`[tools]` table). */
+/**
+ * Looks up a runtime version in `mise.toml` / `.mise.toml` / `.mise/config.toml` (`[tools]` table) in `dir`.
+ * Only setup-node reads mise files, and only `tools.node` given as a string or `{ version = … }`.
+ */
 async function miseRuntime(dir, runtime) {
-  for (const file of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
-    const text = await readText(path$1.join(dir, file));
+  for (const name of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
+    const file = path$1.join(dir, name);
+    const text = await readText(file);
     if (!text) continue
     let parsed;
     try {
@@ -30860,28 +31014,70 @@ async function miseRuntime(dir, runtime) {
     }
     const tools = parsed['tools'];
     if (!tools || typeof tools !== 'object') continue
-    for (const name of _nullishCoalesce$4(ASDF_NAMES[runtime], () => ( []))) {
-      const value = (tools )[name];
-      if (typeof value === 'string') return cleanVersion(value)
-      if (Array.isArray(value) && typeof value[0] === 'string') return cleanVersion(value[0])
+    for (const tool of ASDF_NAMES[runtime]) {
+      const value = (tools )[tool];
+      const readable = runtime === 'node' && tool === 'node';
+      const hit = (v, setupReadable) => ({ value: cleanVersion(v), file, field: `tools.${tool}`, setupReadable });
+      if (typeof value === 'string') return hit(value, readable)
+      if (Array.isArray(value) && typeof value[0] === 'string') return hit(value[0], false)
       if (value && typeof value === 'object' && typeof (value ).version === 'string') {
-        return cleanVersion((value ).version)
+        return hit((value ).version, readable)
       }
     }
   }
   return undefined
 }
 
-/** Reads a single-line version file such as `.nvmrc` or `.python-version`. */
-async function versionFileRuntime(dir, files) {
-  for (const file of files) {
-    const value = await readVersionFile(path$1.join(dir, file));
-    if (value) return cleanVersion(value)
+/** Reads the first existing single-line version file (`.nvmrc`, `.python-version`, …) in `dir`. */
+async function versionFileRuntime(
+  dir,
+  files,
+  setupReadable = true,
+) {
+  for (const name of files) {
+    const file = path$1.join(dir, name);
+    const value = await readVersionFile(file);
+    if (value) return { value: cleanVersion(value), file, field: '', setupReadable }
   }
   return undefined
 }
 
-function _nullishCoalesce$3(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } }
+ 
+
+/**
+ * Resolves the runtime version the way version managers do: sources in the project directory first
+ * (in the order `chain` returns them), then the same for every parent directory up to the walk
+ * boundary (repository / workspace root), nearest first. `chain` receives each directory and returns
+ * the sources to try there, so a detector can consult manifest fields only at specific levels.
+ */
+async function resolveRuntime(
+  ctx,
+  chain,
+) {
+  for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$7(ctx.boundary, () => ( ctx.dir)))]) {
+    for (const candidate of chain(level)) {
+      const hit = await candidate();
+      if (_optionalChain$5([hit, 'optionalAccess', _ => _.value])) return hit
+    }
+  }
+  return undefined
+}
+
+/** Maps a runtime hit onto the `languageVersion*` fields of a detection, paths relative to `dir`. */
+function runtimeFields(
+  dir,
+  hit,
+) {
+  if (!hit) return { languageVersion: '', languageVersionSource: '', languageVersionFile: '' }
+  const file = relPosix(dir, hit.file);
+  return {
+    languageVersion: hit.value,
+    languageVersionSource: hit.field ? `${file}:${hit.field}` : file,
+    languageVersionFile: hit.setupReadable ? file : '',
+  }
+}
+
+function _nullishCoalesce$6(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } }
 const VERSION_FILES$1 = ['VERSION', 'VERSION.txt', 'version.txt'];
 
 /** Conventional locations of a `Version` constant, checked before falling back to a directory walk. */
@@ -30905,9 +31101,9 @@ function parseGoMod(text) {
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/\/\/.*$/, '').trim();
     let match;
-    if ((match = /^module\s+("?)(\S+?)\1$/.exec(line))) result.module ||= _nullishCoalesce$3(match[2], () => ( ''));
-    else if ((match = /^go\s+(\S+)$/.exec(line))) result.go ||= _nullishCoalesce$3(match[1], () => ( ''));
-    else if ((match = /^toolchain\s+go(\S+)$/.exec(line))) result.toolchain ||= _nullishCoalesce$3(match[1], () => ( ''));
+    if ((match = /^module\s+("?)(\S+?)\1$/.exec(line))) result.module ||= _nullishCoalesce$6(match[2], () => ( ''));
+    else if ((match = /^go\s+(\S+)$/.exec(line))) result.go ||= _nullishCoalesce$6(match[1], () => ( ''));
+    else if ((match = /^toolchain\s+go(\S+)$/.exec(line))) result.toolchain ||= _nullishCoalesce$6(match[1], () => ( ''));
   }
   return result
 }
@@ -30942,18 +31138,29 @@ async function versionFromGoSource(dir) {
   return undefined
 }
 
+/**
+ * Go tags nested modules with their directory: the module in `tools/` is released as `tools/v1.2.3`.
+ * Returns that prefix (`tools/`) for `dir`, or an empty string for the repository root module.
+ */
+function moduleTagPrefix(dir, gitRoot) {
+  if (!gitRoot) return ''
+  const rel = relPosix(gitRoot, dir);
+  return rel === '.' || rel.startsWith('../') ? '' : `${rel}/`
+}
+
 const goDetector = {
   language: 'go',
-  async detect({ dir }) {
+  async detect(ctx) {
+    const { dir } = ctx;
     const manifest = await firstExisting(dir, ['go.mod', 'go.work', 'Gopkg.toml']);
     if (!manifest) return undefined
 
     const isDep = manifest === 'Gopkg.toml';
-    const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod(await _asyncNullishCoalesce$2((await readText(path$1.join(dir, manifest))), async () => ( '')));
+    const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod(await _asyncNullishCoalesce$1((await readText(path$1.join(dir, manifest))), async () => ( '')));
 
     const lockfile = isDep
       ? (await isFile(path$1.join(dir, 'Gopkg.lock'))) ? 'Gopkg.lock' : ''
-      : await _asyncNullishCoalesce$2((await firstExisting(dir, ['go.sum', 'go.work.sum'])), async () => ( ''));
+      : await _asyncNullishCoalesce$1((await firstExisting(dir, ['go.sum', 'go.work.sum'])), async () => ( ''));
 
     let version = '';
     let versionSource = '';
@@ -30971,15 +31178,22 @@ const goDetector = {
     }
     if (!version) {
       // Go modules are versioned by git tags, so this is the canonical last resort.
-      const tag = await gitDescribeTag(dir);
+      const tag = await gitDescribeTag(dir, moduleTagPrefix(dir, ctx.gitRoot));
       if (tag) {
         version = tag;
         versionSource = 'git-tag';
       }
     }
 
-    const languageVersion =
-      goMod.go || goMod.toolchain || (await toolVersionsRuntime(dir, 'go')) || (await miseRuntime(dir, 'go')) || '';
+    // setup-go reads go.mod / go.work itself (toolchain directive first, then go), so both are readable.
+    const manifestPath = path$1.join(dir, manifest);
+    const directive = (value, field) =>
+      value ? { value, file: manifestPath, field, setupReadable: true } : undefined;
+    const runtime = await resolveRuntime(ctx, (level) => [
+      ...(level === dir ? [() => directive(goMod.go, 'go'), () => directive(goMod.toolchain, 'toolchain')] : []),
+      () => toolVersionsRuntime(level, 'go'),
+      () => miseRuntime(level, 'go'),
+    ]);
 
     return {
       language: 'go',
@@ -30988,14 +31202,109 @@ const goDetector = {
       versionSource,
       packageManager: isDep ? 'dep' : 'go',
       packageManagerVersion: goMod.toolchain,
-      languageVersion,
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: '.',
+      // A bare go.work has no module of its own to download for; run the detection on a member module instead.
+      installCommand: isDep ? 'dep ensure' : manifest === 'go.mod' ? 'go mod download' : '',
+      cacheDependencyPath: lockfile,
     }
   },
 };
 
-async function _asyncNullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
+ * Helpers for recognising workspace (monorepo) membership: glob patterns as used by
+ * `package.json#workspaces`, `pnpm-workspace.yaml` and `[tool.uv.workspace]`.
+ */
+
+function normalizePattern(pattern) {
+  return pattern.trim().replace(/^\.\//, '').replace(/\/+$/, '')
+}
+
+/** Converts a workspace glob (`*`, `**`, `?`) into an anchored regular expression over posix paths. */
+function globToRegExp(pattern) {
+  const glob = normalizePattern(pattern);
+  let re = '';
+  for (let i = 0; i < glob.length; i++) {
+    const char = glob[i];
+    if (char === '*') {
+      if (glob[i + 1] === '*') {
+        // `**/` matches zero or more directories, a trailing `**` matches everything below.
+        if (glob[i + 2] === '/') {
+          re += '(?:.*/)?';
+          i += 2;
+        } else {
+          re += '.*';
+          i += 1;
+        }
+      } else {
+        re += '[^/]*';
+      }
+    } else if (char === '?') {
+      re += '[^/]';
+    } else {
+      re += char.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  return new RegExp(`^${re}$`)
+}
+
+/**
+ * True when `relPath` (posix, relative to the workspace root) is matched by at least one positive
+ * pattern and by no negated (`!pattern`) one.
+ */
+function matchesWorkspacePatterns(patterns, relPath) {
+  const target = normalizePattern(relPath);
+  if (!target || target === '.' || target.startsWith('../')) return false
+  let included = false;
+  for (const raw of patterns) {
+    const negated = raw.trim().startsWith('!');
+    const pattern = negated ? raw.trim().slice(1) : raw;
+    if (!normalizePattern(pattern)) continue
+    if (globToRegExp(pattern).test(target)) {
+      if (negated) return false
+      included = true;
+    }
+  }
+  return included
+}
+
+function unquote(value) {
+  const v = value.trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) return v.slice(1, -1)
+  return v
+}
+
+/**
+ * Reads the `packages:` list from `pnpm-workspace.yaml`. Supports the block form
+ * (`packages:\n  - 'apps/*'`) and the flow form (`packages: [apps/*, libs/*]`), which covers
+ * what pnpm documents; anything else yields an empty list.
+ */
+function parsePnpmWorkspacePackages(text) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((l) => /^packages\s*:/.test(l));
+  if (start < 0) return []
+  const inline = _nullishCoalesce$5(_optionalChain$4([/^packages\s*:\s*(.*)$/, 'access', _ => _.exec, 'call', _2 => _2(lines[start]), 'optionalAccess', _3 => _3[1], 'optionalAccess', _4 => _4.replace, 'call', _5 => _5(/\s+#.*$/, ''), 'access', _6 => _6.trim, 'call', _7 => _7()]), () => ( ''));
+  if (inline.startsWith('[')) {
+    return inline
+      .replace(/^\[|\]$/g, '')
+      .split(',')
+      .map(unquote)
+      .filter(Boolean)
+  }
+  const result = [];
+  for (const line of lines.slice(start + 1)) {
+    if (/^\s*(#.*)?$/.test(line)) continue
+    if (!/^\s/.test(line)) break // next top-level key
+    const item = _optionalChain$4([/^\s+-\s*(.+?)\s*(?:\s#.*)?$/, 'access', _8 => _8.exec, 'call', _9 => _9(line), 'optionalAccess', _10 => _10[1]]);
+    if (item) result.push(unquote(item));
+  }
+  return result
+}
+
+function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+
 
 
 
@@ -31016,11 +31325,16 @@ const LOCKFILES$1 = [
   { file: 'package-lock.json', pm: 'npm' },
   { file: 'npm-shrinkwrap.json', pm: 'npm' },
 ];
+const LOCKFILE_NAMES = LOCKFILES$1.map((l) => l.file);
 
 const NODE_PMS = ['npm', 'yarn', 'pnpm', 'bun'];
 
 function isNodePm(value) {
   return (NODE_PMS ).includes(value)
+}
+
+function lockfilePm(file) {
+  return file ? _optionalChain$3([LOCKFILES$1, 'access', _ => _.find, 'call', _2 => _2((l) => l.file === path$1.basename(file)), 'optionalAccess', _3 => _3.pm]) : undefined
 }
 
 /** Parses the `packageManager` field (`pnpm@9.1.0+sha512...`) into name and version. */
@@ -31033,84 +31347,160 @@ function parsePackageManagerField(value) {
   return { pm: name, version: cleanVersion(version) }
 }
 
+/** `devEngines.packageManager` / `devEngines.runtime` hold either one entry or an array of alternatives. */
+function devEngineEntries(value) {
+  return (Array.isArray(value) ? value : [value]).filter(
+    (e) => !!e && typeof e === 'object' && !Array.isArray(e),
+  )
+}
+
+/** Package manager declared explicitly: `packageManager` (corepack), then `devEngines.packageManager`. */
+function declaredPackageManager(pkg) {
+  if (!pkg) return undefined
+  const explicit = parsePackageManagerField(pkg.packageManager);
+  if (explicit) return explicit
+  for (const { name, version } of devEngineEntries(_optionalChain$3([pkg, 'access', _4 => _4.devEngines, 'optionalAccess', _5 => _5.packageManager]))) {
+    if (typeof name === 'string' && isNodePm(name)) return { pm: name, version: typeof version === 'string' ? version.trim() : '' }
+  }
+  return undefined
+}
+
+/** A package manager named in `volta` or `engines` (e.g. `engines.pnpm`). */
+function packageManagerNamedIn(pkg) {
+  for (const source of [_optionalChain$3([pkg, 'optionalAccess', _6 => _6.volta]), _optionalChain$3([pkg, 'optionalAccess', _7 => _7.engines])]) {
+    const hit = NODE_PMS.find((pm) => typeof _optionalChain$3([source, 'optionalAccess', _8 => _8[pm]]) === 'string');
+    if (hit) return hit
+  }
+  return undefined
+}
+
 /** Yarn Berry pins its own binary in `.yarnrc.yml` (`yarnPath: .yarn/releases/yarn-3.6.4.cjs`). */
 async function yarnVersionFromRc(dir) {
   const rc = await readText(path$1.join(dir, '.yarnrc.yml'));
   if (!rc) return undefined
   const match = /^\s*yarnPath:\s*["']?.*yarn-(\d+\.\d+\.\d+[^"'\s/]*)\.c?js["']?\s*$/m.exec(rc);
-  return _optionalChain$3([match, 'optionalAccess', _ => _[1]])
+  return _optionalChain$3([match, 'optionalAccess', _9 => _9[1]])
 }
 
-async function nodeVersion(dir, pkg) {
-  const fromFile = await versionFileRuntime(dir, ['.nvmrc', '.node-version']);
-  if (fromFile) return fromFile
-  const volta = _optionalChain$3([pkg, 'access', _2 => _2.volta, 'optionalAccess', _3 => _3['node']]);
-  if (typeof volta === 'string') return cleanVersion(volta)
-  const engines = _optionalChain$3([pkg, 'access', _4 => _4.engines, 'optionalAccess', _5 => _5['node']]);
-  if (typeof engines === 'string') return engines.trim()
-  return await _asyncNullishCoalesce$1(await _asyncNullishCoalesce$1((await toolVersionsRuntime(dir, 'node')), async () => ( (await miseRuntime(dir, 'node')))), async () => ( ''))
+/** Yarn 2+ ("Berry") vs Yarn 1 ("Classic"): they need different frozen-install flags. */
+async function isYarnBerry(root, version, lockfile) {
+  const major = _optionalChain$3([/(\d+)/, 'access', _10 => _10.exec, 'call', _11 => _11(version), 'optionalAccess', _12 => _12[1]]);
+  if (major) return Number(major) >= 2
+  if (await isFile(path$1.join(root, '.yarnrc.yml'))) return true
+  if (lockfile && path$1.basename(lockfile) === 'yarn.lock') return /^__metadata:/m.test(await _asyncNullishCoalesce((await readText(lockfile)), async () => ( '')))
+  return false
+}
+
+function installCommand$1(pm, frozen, yarnBerry) {
+  switch (pm) {
+    case 'npm':
+      return frozen ? 'npm ci' : 'npm install'
+    case 'pnpm':
+      return frozen ? 'pnpm install --frozen-lockfile' : 'pnpm install'
+    case 'yarn':
+      if (!frozen) return 'yarn install'
+      return yarnBerry ? 'yarn install --immutable' : 'yarn install --frozen-lockfile'
+    case 'bun':
+      return frozen ? 'bun install --frozen-lockfile' : 'bun install'
+  }
+}
+
+/** Node runtime declared in package.json, in the order setup-node reads it: volta → devEngines → engines. */
+function packageJsonRuntime(dir, pkg) {
+  if (!pkg) return undefined
+  const file = path$1.join(dir, 'package.json');
+  const volta = _optionalChain$3([pkg, 'access', _13 => _13.volta, 'optionalAccess', _14 => _14['node']]);
+  if (typeof volta === 'string' && volta.trim()) return { value: cleanVersion(volta), file, field: 'volta.node', setupReadable: true }
+  const runtime = devEngineEntries(_optionalChain$3([pkg, 'access', _15 => _15.devEngines, 'optionalAccess', _16 => _16.runtime])).find(
+    (e) => typeof e.name === 'string' && e.name.toLowerCase() === 'node' && typeof e.version === 'string' && e.version.trim(),
+  );
+  if (runtime) return { value: (runtime.version ).trim(), file, field: 'devEngines.runtime', setupReadable: true }
+  const engines = _optionalChain$3([pkg, 'access', _17 => _17.engines, 'optionalAccess', _18 => _18['node']]);
+  if (typeof engines === 'string' && engines.trim()) return { value: engines.trim(), file, field: 'engines.node', setupReadable: true }
+  return undefined
+}
+
+function workspacePatterns(pkg) {
+  const ws = _optionalChain$3([pkg, 'optionalAccess', _19 => _19.workspaces]);
+  const list = Array.isArray(ws) ? ws : ws && typeof ws === 'object' ? (ws ).packages : undefined;
+  return Array.isArray(list) ? list.filter((p) => typeof p === 'string') : []
+}
+
+
+
+
+
+
+
+
+/**
+ * Nearest parent directory (within the walk boundary) whose workspace definition — `pnpm-workspace.yaml`
+ * or `package.json#workspaces` (npm, Yarn, Bun) — includes `dir` as a member.
+ */
+async function findWorkspace({ dir, boundary }) {
+  for (const level of ancestors(dir, _nullishCoalesce$4(boundary, () => ( dir)))) {
+    const rel = relPosix(level, dir);
+    const pkg = await readJson(path$1.join(level, 'package.json'));
+    const pnpmWorkspace = await readText(path$1.join(level, 'pnpm-workspace.yaml'));
+    if (pnpmWorkspace !== undefined && matchesWorkspacePatterns(parsePnpmWorkspacePackages(pnpmWorkspace), rel)) {
+      return { dir: level, pkg, pnpm: true }
+    }
+    if (matchesWorkspacePatterns(workspacePatterns(pkg), rel)) return { dir: level, pkg, pnpm: false }
+  }
+  return undefined
 }
 
 const nodeDetector = {
   language: 'node',
-  async detect({ dir }) {
+  async detect(ctx) {
+    const { dir } = ctx;
     const manifest = 'package.json';
     if (!(await isFile(path$1.join(dir, manifest)))) return undefined
-    const pkg = await _asyncNullishCoalesce$1((await readJson(path$1.join(dir, manifest))), async () => ( {}));
+    const pkg = await _asyncNullishCoalesce((await readJson(path$1.join(dir, manifest))), async () => ( {}));
+    const workspace = await findWorkspace(ctx);
+    const rootPkg = _optionalChain$3([workspace, 'optionalAccess', _20 => _20.pkg]);
 
+    // Lockfile: the project's own, otherwise the workspace root's (members share the root lockfile).
+    const ownLock = await firstExisting(dir, LOCKFILE_NAMES);
+    const rootLock = workspace ? await firstExisting(workspace.dir, LOCKFILE_NAMES) : undefined;
+    const lockfilePath = ownLock ? path$1.join(dir, ownLock) : rootLock && workspace ? path$1.join(workspace.dir, rootLock) : undefined;
+
+    // Package manager: explicit declarations beat lockfiles; the project beats its workspace root.
     let packageManager;
     let packageManagerVersion = '';
-
-    // 1. Explicit `packageManager` field (corepack) — the most authoritative source.
-    const explicit = parsePackageManagerField(pkg.packageManager);
-    if (explicit) {
-      packageManager = explicit.pm;
-      packageManagerVersion = explicit.version;
+    const declared = declaredPackageManager(pkg);
+    if (declared) ({ pm: packageManager, version: packageManagerVersion } = declared);
+    packageManager ??= lockfilePm(ownLock);
+    if (!packageManager && workspace) {
+      const rootDeclared = declaredPackageManager(rootPkg);
+      if (rootDeclared) ({ pm: packageManager, version: packageManagerVersion } = rootDeclared);
+      else packageManager = _nullishCoalesce$4(lockfilePm(rootLock), () => ( (workspace.pnpm ? 'pnpm' : undefined)));
     }
-
-    // 2. `devEngines.packageManager` (npm 10.9+ / Node 22 devEngines proposal).
-    if (!packageManager) {
-      const devEngine = _optionalChain$3([pkg, 'access', _6 => _6.devEngines, 'optionalAccess', _7 => _7.packageManager]);
-      const candidate = Array.isArray(devEngine) ? devEngine[0] : devEngine;
-      if (candidate && typeof candidate === 'object') {
-        const { name, version } = candidate; 
-        if (typeof name === 'string' && isNodePm(name)) {
-          packageManager = name;
-          if (typeof version === 'string') packageManagerVersion = version.trim();
-        }
-      }
-    }
-
-    // 3. Lockfile.
-    const lockfile = await _asyncNullishCoalesce$1((await firstExisting(dir, LOCKFILES$1.map((l) => l.file))), async () => ( ''));
-    if (!packageManager && lockfile) {
-      packageManager = _optionalChain$3([LOCKFILES$1, 'access', _8 => _8.find, 'call', _9 => _9((l) => l.file === lockfile), 'optionalAccess', _10 => _10.pm]);
-    }
-
-    // 4. `volta` / `engines` entries naming a package manager.
-    if (!packageManager) {
-      for (const source of [pkg.volta, pkg.engines]) {
-        const hit = NODE_PMS.find((pm) => typeof _optionalChain$3([source, 'optionalAccess', _11 => _11[pm]]) === 'string');
-        if (hit) {
-          packageManager = hit;
-          break
-        }
-      }
-    }
-
-    // 5. Default.
-    packageManager ??= 'npm';
+    packageManager ??= _nullishCoalesce$4(_nullishCoalesce$4(packageManagerNamedIn(pkg), () => ( packageManagerNamedIn(rootPkg))), () => ( 'npm'));
 
     // Fill in the package manager version from secondary sources when it is still unknown.
     if (!packageManagerVersion) {
-      const volta = _optionalChain$3([pkg, 'access', _12 => _12.volta, 'optionalAccess', _13 => _13[packageManager]]);
-      const engines = _optionalChain$3([pkg, 'access', _14 => _14.engines, 'optionalAccess', _15 => _15[packageManager]]);
-      if (typeof volta === 'string') packageManagerVersion = cleanVersion(volta);
-      else if (packageManager === 'yarn') packageManagerVersion = await _asyncNullishCoalesce$1((await yarnVersionFromRc(dir)), async () => ( ''));
-      if (!packageManagerVersion && typeof engines === 'string') packageManagerVersion = engines.trim();
+      const pm = packageManager;
+      const volta = [pkg, rootPkg].map((p) => _optionalChain$3([p, 'optionalAccess', _21 => _21.volta, 'optionalAccess', _22 => _22[pm]])).find((v) => typeof v === 'string');
+      if (volta) packageManagerVersion = cleanVersion(volta);
+      else if (pm === 'yarn') packageManagerVersion = await _asyncNullishCoalesce(await _asyncNullishCoalesce((await yarnVersionFromRc(dir)), async () => ( (workspace ? await yarnVersionFromRc(workspace.dir) : undefined))), async () => ( ''));
+      const engines = [pkg, rootPkg].map((p) => _optionalChain$3([p, 'optionalAccess', _23 => _23.engines, 'optionalAccess', _24 => _24[pm]])).find((v) => typeof v === 'string');
+      if (!packageManagerVersion && engines) packageManagerVersion = engines.trim();
     }
 
+    const installRoot = _nullishCoalesce$4(_optionalChain$3([workspace, 'optionalAccess', _25 => _25.dir]), () => ( dir));
+    const frozen = lockfilePm(lockfilePath) === packageManager;
+    const yarnBerry = packageManager === 'yarn' && (await isYarnBerry(installRoot, packageManagerVersion, lockfilePath));
+
+    const runtime = await resolveRuntime(ctx, (level) => [
+      () => versionFileRuntime(level, ['.nvmrc', '.node-version']),
+      () => packageJsonRuntime(level, level === dir ? pkg : level === _optionalChain$3([workspace, 'optionalAccess', _26 => _26.dir]) ? rootPkg : undefined),
+      () => toolVersionsRuntime(level, 'node'),
+      () => miseRuntime(level, 'node'),
+    ]);
+
     const version = typeof pkg.version === 'string' ? cleanVersion(pkg.version) : '';
+    const lockfile = lockfilePath ? relPosix(dir, lockfilePath) : '';
 
     return {
       language: 'node',
@@ -31119,14 +31509,17 @@ const nodeDetector = {
       versionSource: version ? manifest : '',
       packageManager,
       packageManagerVersion,
-      languageVersion: await nodeVersion(dir, pkg),
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: relPosix(dir, installRoot),
+      installCommand: installCommand$1(packageManager, frozen, yarnBerry),
+      cacheDependencyPath: lockfile,
     }
   },
 };
 
-function _nullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
+function _nullishCoalesce$3(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
 function parseIni(text) {
   const result = {};
   let section;
@@ -31142,34 +31535,69 @@ function parseIni(text) {
     if (!section) continue
     if (/^\s/.test(rawLine) && lastKey !== undefined) {
       // continuation line of a multi-line value
-      section[lastKey] = `${_nullishCoalesce$2(section[lastKey], () => ( ''))}\n${rawLine.trim()}`.trim();
+      section[lastKey] = `${_nullishCoalesce$3(section[lastKey], () => ( ''))}\n${rawLine.trim()}`.trim();
       continue
     }
     const kv = /^([^=:]+?)\s*[=:]\s*(.*)$/.exec(rawLine);
     if (_optionalChain$2([kv, 'optionalAccess', _2 => _2[1]]) !== undefined) {
       lastKey = kv[1].trim();
-      section[lastKey] = (_nullishCoalesce$2(kv[2], () => ( ''))).trim();
+      section[lastKey] = (_nullishCoalesce$3(kv[2], () => ( ''))).trim();
     }
   }
   return result
 }
 
-function _nullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
 
 
 
 const MANIFESTS = ['pyproject.toml', 'setup.cfg', 'setup.py', 'Pipfile', 'requirements.txt']; 
 
-/** Lockfiles in priority order — the first one found wins. */
+/** Lockfiles in priority order — the first one found wins. `pylock.toml` (PEP 751) is tool-agnostic. */
 const LOCKFILES = [
   { file: 'uv.lock', pm: 'uv' },
   { file: 'poetry.lock', pm: 'poetry' },
   { file: 'pdm.lock', pm: 'pdm' },
   { file: 'Pipfile.lock', pm: 'pipenv' },
+  { file: 'pylock.toml' },
 ];
 
+/** PEP 751 named lock files: `pylock.<name>.toml` (the name contains no dots). */
+const NAMED_PYLOCK = /^pylock\.[^.]+\.toml$/;
+
 const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt'];
+
+/** Version-module file names checked inside a package directory. */
+const VERSION_MODULES = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py'];
+
+/** Top-level directories that are never the project's own package (tests, docs, vendored code, ...). */
+const NON_PROJECT_DIRS = new Set([
+  'src',
+  'test',
+  'tests',
+  'testing',
+  'doc',
+  'docs',
+  'example',
+  'examples',
+  'script',
+  'scripts',
+  'tools',
+  'benchmark',
+  'benchmarks',
+  'third_party',
+  'thirdparty',
+  'vendor',
+  'vendored',
+  '_vendor',
+  'external',
+  'build',
+  'dist',
+  'site-packages',
+  'node_modules',
+  'migrations',
+]);
 
 function table(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value ) : undefined
@@ -31177,6 +31605,10 @@ function table(value) {
 
 function str(value) {
   return typeof value === 'string' ? value : undefined
+}
+
+function strings(value) {
+  return Array.isArray(value) ? value.filter((v) => typeof v === 'string') : []
 }
 
 function get(root, ...keys) {
@@ -31201,7 +31633,7 @@ async function readPyproject(dir) {
   let raw;
   try {
     raw = parse(text); 
-  } catch (e) {
+  } catch (e2) {
     raw = {};
   }
   return {
@@ -31306,28 +31738,79 @@ function usesScmVersioning(pyproject) {
   return false
 }
 
-/** Scans conventional locations (`pkg/__init__.py`, `src/pkg/_version.py`, ...) for a `__version__` assignment. */
-async function scanForDunderVersion(dir, projectName) {
-  const moduleNames = projectName ? [projectName.replace(/-/g, '_').toLowerCase(), projectName.toLowerCase()] : [];
-  const fileNames = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py'];
-  const candidates = [];
-  for (const mod of moduleNames) {
-    for (const root of ['src', '']) {
-      for (const file of fileNames) candidates.push(path$1.join(root, mod, file));
+/** Importable package directories directly in the project root or in `src/`, minus tests, docs, vendored code, .... */
+async function topLevelPackages(dir) {
+  const found = [];
+  for (const root of ['src', '']) {
+    let entries;
+    try {
+      entries = await fs$1.readdir(path$1.join(dir, root), { withFileTypes: true });
+    } catch (e3) {
+      continue
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name)) continue
+      if (NON_PROJECT_DIRS.has(entry.name.toLowerCase())) continue
+      if (await isFile(path$1.join(dir, root, entry.name, '__init__.py'))) found.push(root ? `${root}/${entry.name}` : entry.name);
     }
   }
-  for (const candidate of candidates) {
-    const source = await readText(path$1.join(dir, candidate));
-    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
-    if (v) return { version: v, source: candidate }
+  return found.sort()
+}
+
+/**
+ * Looks for a `__version__` assignment in the project's own package: the module named after the project
+ * (`my-app` → `my_app`), otherwise the only top-level package in the root or `src/`. Several candidate
+ * packages make the guess ambiguous, so nothing is reported then — better no version than another
+ * package's (e.g. a vendored library's) version.
+ */
+async function scanForDunderVersion(dir, projectName) {
+  const named = projectName ? [...new Set([projectName.replace(/[-.]/g, '_').toLowerCase(), projectName.toLowerCase()])] : [];
+  const packageDirs = [];
+  for (const mod of named) for (const root of ['src', '']) packageDirs.push(root ? `${root}/${mod}` : mod);
+  const packages = await topLevelPackages(dir);
+  if (packages.length === 1) packageDirs.push(packages[0]);
+
+  for (const pkgDir of packageDirs) {
+    for (const file of VERSION_MODULES) {
+      const candidate = `${pkgDir}/${file}`;
+      const source = await readText(path$1.join(dir, candidate));
+      const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
+      if (v) return { version: v, source: candidate }
+    }
   }
-  // Generic fallback: shallow walk for any version-ish module.
-  const files = (await walkFiles(dir, { maxDepth: 3 })).filter((f) => fileNames.includes(path$1.basename(f)));
-  files.sort((a, b) => a.split(path$1.sep).length - b.split(path$1.sep).length || a.localeCompare(b));
-  for (const file of files) {
-    const source = await readText(path$1.join(dir, file));
-    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined;
-    if (v) return { version: v, source: file }
+  return undefined
+}
+
+async function findLockfile(dir) {
+  const fixed = await firstExisting(dir, LOCKFILES.map((l) => l.file));
+  if (fixed) return fixed
+  let entries;
+  try {
+    entries = await fs$1.readdir(dir);
+  } catch (e4) {
+    return undefined
+  }
+  for (const entry of entries.filter((e) => NAMED_PYLOCK.test(e)).sort()) {
+    if (await isFile(path$1.join(dir, entry))) return entry
+  }
+  return undefined
+}
+
+
+
+
+
+
+/** Nearest parent directory whose `[tool.uv.workspace]` lists `dir` in `members` (and not in `exclude`). */
+async function findUvWorkspace({ dir, boundary }) {
+  for (const level of ancestors(dir, _nullishCoalesce$2(boundary, () => ( dir)))) {
+    const pyproject = await readPyproject(level);
+    const workspace = table(get(_optionalChain$1([pyproject, 'optionalAccess', _7 => _7.tool]), 'uv', 'workspace'));
+    if (!pyproject || !workspace) continue
+    const rel = relPosix(level, dir);
+    if (matchesWorkspacePatterns(strings(workspace['members']), rel) && !matchesWorkspacePatterns(strings(workspace['exclude']), rel)) {
+      return { dir: level, pyproject }
+    }
   }
   return undefined
 }
@@ -31336,18 +31819,20 @@ function detectPackageManager(
   pyproject,
   lockfile,
   manifests,
+  uvWorkspace,
 ) {
-  const tool = _optionalChain$1([pyproject, 'optionalAccess', _7 => _7.tool]);
+  const tool = _optionalChain$1([pyproject, 'optionalAccess', _8 => _8.tool]);
 
-  const lock = LOCKFILES.find((l) => l.file === lockfile);
-  if (lock) return { pm: lock.pm, version: '' }
+  const lock = LOCKFILES.find((l) => l.file === path$1.posix.basename(lockfile));
+  if (_optionalChain$1([lock, 'optionalAccess', _9 => _9.pm])) return { pm: lock.pm, version: '' }
+  if (uvWorkspace) return { pm: 'uv', version: '' }
 
-  if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: _nullishCoalesce$1(str(get(tool, 'uv', 'required-version')), () => ( '')) }
-  if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: _nullishCoalesce$1(str(get(tool, 'poetry', 'requires-poetry')), () => ( '')) }
+  if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: _nullishCoalesce$2(str(get(tool, 'uv', 'required-version')), () => ( '')) }
+  if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: _nullishCoalesce$2(str(get(tool, 'poetry', 'requires-poetry')), () => ( '')) }
   if (get(tool, 'pdm') !== undefined) return { pm: 'pdm', version: '' }
   if (get(tool, 'hatch', 'envs') !== undefined) return { pm: 'hatch', version: '' }
 
-  const backend = _nullishCoalesce$1(str(_optionalChain$1([pyproject, 'optionalAccess', _8 => _8.buildSystem, 'optionalAccess', _9 => _9['build-backend']])), () => ( ''));
+  const backend = _nullishCoalesce$2(str(_optionalChain$1([pyproject, 'optionalAccess', _10 => _10.buildSystem, 'optionalAccess', _11 => _11['build-backend']])), () => ( ''));
   if (/^poetry(\.core)?\.masonry/.test(backend) || backend === 'poetry.core.masonry.api') return { pm: 'poetry', version: '' }
   if (/^pdm\./.test(backend)) return { pm: 'pdm', version: '' }
 
@@ -31358,43 +31843,76 @@ function detectPackageManager(
 async function poetryLockVersion(dir) {
   const text = await readText(path$1.join(dir, 'poetry.lock'));
   const match = text ? /@generated by Poetry (\S+?)(?:\s|$)/.exec(text) : null;
-  return _nullishCoalesce$1(_optionalChain$1([match, 'optionalAccess', _10 => _10[1]]), () => ( ''))
+  return _nullishCoalesce$2(_optionalChain$1([match, 'optionalAccess', _12 => _12[1]]), () => ( ''))
 }
 
-async function pythonVersion(dir, pyproject, setupCfg) {
-  const fromFile = await versionFileRuntime(dir, ['.python-version']);
-  if (fromFile) return fromFile
+/** PEP 508 project name. Anything else is not put into a shell command. */
+const VALID_PROJECT_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 
-  const requiresPython = str(_optionalChain$1([pyproject, 'optionalAccess', _11 => _11.project, 'optionalAccess', _12 => _12['requires-python']]));
-  if (requiresPython) return requiresPython.trim()
-
-  const poetryPython = get(_optionalChain$1([pyproject, 'optionalAccess', _13 => _13.tool]), 'poetry', 'dependencies', 'python');
-  if (typeof poetryPython === 'string') return poetryPython.trim()
-
-  const pipfile = await readText(path$1.join(dir, 'Pipfile'));
-  if (pipfile) {
-    try {
-      const requires = table((parse(pipfile) )['requires']);
-      const v = _nullishCoalesce$1(str(_optionalChain$1([requires, 'optionalAccess', _14 => _14['python_full_version']])), () => ( str(_optionalChain$1([requires, 'optionalAccess', _15 => _15['python_version']]))));
-      if (v) return v
-    } catch (e2) {
-      // ignore malformed Pipfile
+function installCommand(pm, lockfile, manifests, uvMember) {
+  const lock = path$1.posix.basename(lockfile);
+  switch (pm) {
+    case 'uv': {
+      const base = lock === 'uv.lock' ? 'uv sync --locked' : 'uv sync';
+      return uvMember && VALID_PROJECT_NAME.test(uvMember) ? `${base} --package ${uvMember}` : base
     }
+    case 'poetry':
+      return 'poetry install'
+    case 'pdm':
+      return lock === 'pdm.lock' ? 'pdm sync' : 'pdm install'
+    case 'hatch':
+      return 'hatch env create'
+    case 'pipenv':
+      return lock === 'Pipfile.lock' ? 'pipenv install --deploy' : 'pipenv install'
+    case 'pip':
+      if (manifests.has('requirements.txt')) return 'pip install -r requirements.txt'
+      return manifests.has('pyproject.toml') || manifests.has('setup.py') || manifests.has('setup.cfg') ? 'pip install .' : ''
   }
+}
 
-  const pythonRequires = _optionalChain$1([setupCfg, 'access', _16 => _16['options'], 'optionalAccess', _17 => _17['python_requires']]);
-  if (pythonRequires) return pythonRequires
+/**
+ * Python version declared in pyproject.toml. setup-python reads `project.requires-python` when a
+ * `[project]` table exists and Poetry's `python` dependency only when it does not.
+ */
+function pyprojectRuntime(dir, pyproject) {
+  if (!pyproject) return undefined
+  const file = path$1.join(dir, 'pyproject.toml');
+  const requiresPython = _optionalChain$1([str, 'call', _13 => _13(_optionalChain$1([pyproject, 'access', _14 => _14.project, 'optionalAccess', _15 => _15['requires-python']])), 'optionalAccess', _16 => _16.trim, 'call', _17 => _17()]);
+  if (requiresPython) return { value: requiresPython, file, field: 'project.requires-python', setupReadable: true }
+  const poetryPython = _optionalChain$1([str, 'call', _18 => _18(get(pyproject.tool, 'poetry', 'dependencies', 'python')), 'optionalAccess', _19 => _19.trim, 'call', _20 => _20()]);
+  if (poetryPython) {
+    return { value: poetryPython, file, field: 'tool.poetry.dependencies.python', setupReadable: !('project' in pyproject.raw) }
+  }
+  return undefined
+}
 
-  const runtimeTxt = await readVersionFile(path$1.join(dir, 'runtime.txt'));
-  const runtimeMatch = runtimeTxt ? /^python-?(.+)$/i.exec(runtimeTxt) : null;
-  if (_optionalChain$1([runtimeMatch, 'optionalAccess', _18 => _18[1]])) return runtimeMatch[1]
+async function pipfileRuntime(dir) {
+  const file = path$1.join(dir, 'Pipfile');
+  const pipfile = await readText(file);
+  if (!pipfile) return undefined
+  try {
+    const requires = table((parse(pipfile) )['requires']);
+    for (const key of ['python_full_version', 'python_version']) {
+      const v = str(_optionalChain$1([requires, 'optionalAccess', _21 => _21[key]]));
+      if (v) return { value: v, file, field: `requires.${key}`, setupReadable: true }
+    }
+  } catch (e5) {
+    // ignore malformed Pipfile
+  }
+  return undefined
+}
 
-  return await _asyncNullishCoalesce(await _asyncNullishCoalesce((await toolVersionsRuntime(dir, 'python')), async () => ( (await miseRuntime(dir, 'python')))), async () => ( ''))
+async function runtimeTxt(dir) {
+  const file = path$1.join(dir, 'runtime.txt');
+  const value = await readVersionFile(file);
+  const match = value ? /^python-?(.+)$/i.exec(value) : null;
+  return _optionalChain$1([match, 'optionalAccess', _22 => _22[1]]) ? { value: match[1], file, field: '', setupReadable: false } : undefined
 }
 
 const pythonDetector = {
   language: 'python',
-  async detect({ dir }) {
+  async detect(ctx) {
+    const { dir } = ctx;
     const present = new Set();
     for (const m of MANIFESTS) if (await isFile(path$1.join(dir, m))) present.add(m);
     const manifest = MANIFESTS.find((m) => present.has(m));
@@ -31404,13 +31922,14 @@ const pythonDetector = {
     const setupCfgText = present.has('setup.cfg') ? await readText(path$1.join(dir, 'setup.cfg')) : undefined;
     const setupCfg = setupCfgText ? parseIni(setupCfgText) : {};
     const setupPy = present.has('setup.py') ? await readText(path$1.join(dir, 'setup.py')) : undefined;
+    const uvWorkspace = await findUvWorkspace(ctx);
 
     // --- name ---
     const name =
-      _nullishCoalesce$1(_nullishCoalesce$1(_nullishCoalesce$1(_nullishCoalesce$1(str(_optionalChain$1([pyproject, 'optionalAccess', _19 => _19.project, 'optionalAccess', _20 => _20['name']])), () => (
-      str(get(_optionalChain$1([pyproject, 'optionalAccess', _21 => _21.tool]), 'poetry', 'name')))), () => (
-      _optionalChain$1([setupCfg, 'access', _22 => _22['metadata'], 'optionalAccess', _23 => _23['name']]))), () => (
-      (setupPy ? _optionalChain$1([/\bname\s*=\s*["']([^"']+)["']/, 'access', _24 => _24.exec, 'call', _25 => _25(setupPy), 'optionalAccess', _26 => _26[1]]) : undefined))), () => (
+      _nullishCoalesce$2(_nullishCoalesce$2(_nullishCoalesce$2(_nullishCoalesce$2(str(_optionalChain$1([pyproject, 'optionalAccess', _23 => _23.project, 'optionalAccess', _24 => _24['name']])), () => (
+      str(get(_optionalChain$1([pyproject, 'optionalAccess', _25 => _25.tool]), 'poetry', 'name')))), () => (
+      _optionalChain$1([setupCfg, 'access', _26 => _26['metadata'], 'optionalAccess', _27 => _27['name']]))), () => (
+      (setupPy ? _optionalChain$1([/\bname\s*=\s*["']([^"']+)["']/, 'access', _28 => _28.exec, 'call', _29 => _29(setupPy), 'optionalAccess', _30 => _30[1]]) : undefined))), () => (
       ''));
 
     // --- version ---
@@ -31423,28 +31942,28 @@ const pythonDetector = {
       return true
     };
 
-    const projectVersion = str(_optionalChain$1([pyproject, 'optionalAccess', _27 => _27.project, 'optionalAccess', _28 => _28['version']]));
-    const dynamic = _optionalChain$1([pyproject, 'optionalAccess', _29 => _29.project, 'optionalAccess', _30 => _30['dynamic']]);
+    const projectVersion = str(_optionalChain$1([pyproject, 'optionalAccess', _31 => _31.project, 'optionalAccess', _32 => _32['version']]));
+    const dynamic = _optionalChain$1([pyproject, 'optionalAccess', _33 => _33.project, 'optionalAccess', _34 => _34['dynamic']]);
     const isDynamic = Array.isArray(dynamic) && dynamic.includes('version');
 
     if (projectVersion) {
       setVersion(projectVersion, 'pyproject.toml:project.version');
-    } else if (setVersion(str(get(_optionalChain$1([pyproject, 'optionalAccess', _31 => _31.tool]), 'poetry', 'version')), 'pyproject.toml:tool.poetry.version')) ; else if (pyproject && isDynamic) {
+    } else if (setVersion(str(get(_optionalChain$1([pyproject, 'optionalAccess', _35 => _35.tool]), 'poetry', 'version')), 'pyproject.toml:tool.poetry.version')) ; else if (pyproject && isDynamic) {
       const dyn = await dynamicVersion(dir, pyproject);
       if (dyn) setVersion(dyn.version, dyn.source);
     }
 
-    if (!version && _optionalChain$1([setupCfg, 'access', _32 => _32['metadata'], 'optionalAccess', _33 => _33['version']])) {
+    if (!version && _optionalChain$1([setupCfg, 'access', _36 => _36['metadata'], 'optionalAccess', _37 => _37['version']])) {
       const raw = setupCfg['metadata']['version'];
-      const attr = _optionalChain$1([/^attr:\s*(.+)$/, 'access', _34 => _34.exec, 'call', _35 => _35(raw), 'optionalAccess', _36 => _36[1], 'optionalAccess', _37 => _37.trim, 'call', _38 => _38()]);
-      const file = _optionalChain$1([/^file:\s*(.+)$/, 'access', _39 => _39.exec, 'call', _40 => _40(raw), 'optionalAccess', _41 => _41[1], 'optionalAccess', _42 => _42.trim, 'call', _43 => _43()]);
+      const attr = _optionalChain$1([/^attr:\s*(.+)$/, 'access', _38 => _38.exec, 'call', _39 => _39(raw), 'optionalAccess', _40 => _40[1], 'optionalAccess', _41 => _41.trim, 'call', _42 => _42()]);
+      const file = _optionalChain$1([/^file:\s*(.+)$/, 'access', _43 => _43.exec, 'call', _44 => _44(raw), 'optionalAccess', _45 => _45[1], 'optionalAccess', _46 => _46.trim, 'call', _47 => _47()]);
       if (attr) setVersion(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`);
       else if (file) setVersion(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`);
       else setVersion(raw, 'setup.cfg:metadata.version');
     }
 
     if (!version && setupPy) {
-      setVersion(_optionalChain$1([/\bversion\s*=\s*["']([^"']+)["']/, 'access', _44 => _44.exec, 'call', _45 => _45(setupPy), 'optionalAccess', _46 => _46[1]]), 'setup.py');
+      setVersion(_optionalChain$1([/\bversion\s*=\s*["']([^"']+)["']/, 'access', _48 => _48.exec, 'call', _49 => _49(setupPy), 'optionalAccess', _50 => _50[1]]), 'setup.py');
     }
 
     if (!version) {
@@ -31462,12 +31981,44 @@ const pythonDetector = {
     }
 
     // --- package manager ---
-    const lockfile = await _asyncNullishCoalesce((await firstExisting(dir, LOCKFILES.map((l) => l.file))), async () => ( ''));
-    const pmInfo = detectPackageManager(pyproject, lockfile, present);
+    // Workspace members share the workspace root's lockfile.
+    const ownLock = await findLockfile(dir);
+    const rootLock = !ownLock && uvWorkspace && (await isFile(path$1.join(uvWorkspace.dir, 'uv.lock'))) ? path$1.join(uvWorkspace.dir, 'uv.lock') : undefined;
+    const lockfile = _nullishCoalesce$2(ownLock, () => ( (rootLock ? relPosix(dir, rootLock) : '')));
+    const pmInfo = detectPackageManager(pyproject, lockfile, present, uvWorkspace);
     let packageManagerVersion = pmInfo.version;
     if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = await poetryLockVersion(dir);
-    if (pmInfo.pm === 'uv' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$1(str(get(_optionalChain$1([pyproject, 'optionalAccess', _47 => _47.tool]), 'uv', 'required-version')), () => ( ''));
-    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$1(str(get(_optionalChain$1([pyproject, 'optionalAccess', _48 => _48.tool]), 'poetry', 'requires-poetry')), () => ( ''));
+    if (pmInfo.pm === 'uv' && !packageManagerVersion) {
+      packageManagerVersion =
+        _nullishCoalesce$2(_nullishCoalesce$2(str(get(_optionalChain$1([pyproject, 'optionalAccess', _51 => _51.tool]), 'uv', 'required-version')), () => ( str(get(_optionalChain$1([uvWorkspace, 'optionalAccess', _52 => _52.pyproject, 'access', _53 => _53.tool]), 'uv', 'required-version')))), () => ( ''));
+    }
+    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$2(str(get(_optionalChain$1([pyproject, 'optionalAccess', _54 => _54.tool]), 'poetry', 'requires-poetry')), () => ( ''));
+
+    // --- runtime ---
+    const runtime = await resolveRuntime(ctx, (level) =>
+      level === dir
+        ? [
+            () => versionFileRuntime(level, ['.python-version']),
+            () => pyprojectRuntime(level, pyproject),
+            () => pipfileRuntime(level),
+            () => {
+              const v = _optionalChain$1([setupCfg, 'access', _55 => _55['options'], 'optionalAccess', _56 => _56['python_requires']]);
+              return v ? { value: v, file: path$1.join(level, 'setup.cfg'), field: 'options.python_requires', setupReadable: false } : undefined
+            },
+            () => runtimeTxt(level),
+            () => toolVersionsRuntime(level, 'python'),
+            () => miseRuntime(level, 'python'),
+          ]
+        : [
+            () => versionFileRuntime(level, ['.python-version']),
+            () => (level === _optionalChain$1([uvWorkspace, 'optionalAccess', _57 => _57.dir]) ? pyprojectRuntime(level, uvWorkspace.pyproject) : undefined),
+            () => toolVersionsRuntime(level, 'python'),
+            () => miseRuntime(level, 'python'),
+          ],
+    );
+
+    const installRoot = _nullishCoalesce$2(_optionalChain$1([uvWorkspace, 'optionalAccess', _58 => _58.dir]), () => ( dir));
+    const cacheDependencyPath = lockfile || (present.has('requirements.txt') ? 'requirements.txt' : manifest);
 
     return {
       language: 'python',
@@ -31476,9 +32027,12 @@ const pythonDetector = {
       versionSource,
       packageManager: pmInfo.pm,
       packageManagerVersion,
-      languageVersion: await pythonVersion(dir, pyproject, setupCfg),
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: relPosix(dir, installRoot),
+      installCommand: installCommand(pmInfo.pm, lockfile, present, uvWorkspace && name ? name : undefined),
+      cacheDependencyPath,
     }
   },
 };
@@ -31492,51 +32046,156 @@ function isLanguage(value) {
   return (languages ).includes(value)
 }
 
+function _nullishCoalesce$1(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/** Detectors in priority order: the `priority` languages first, then the rest in registry order. */
+function orderDetectors(priority = []) {
+  const preferred = priority
+    .map((language) => detectors.find((d) => d.language === language))
+    .filter((d) => d !== undefined);
+  return [...new Set([...preferred, ...detectors])]
+}
+
+/** Highest directory the detectors may walk up to: the nearest enclosing repository / workspace root. */
+function walkBoundary(dir, gitRoot, workspace) {
+  const roots = [gitRoot, workspace].filter((root) => !!root && isInside(dir, root));
+  return _nullishCoalesce$1(roots.sort((a, b) => b.length - a.length)[0], () => ( dir))
+}
+
 /**
  * Runs every detector against `dir`.
  *
- * When `language` is given only that detector is considered. Otherwise the first detector
- * (in registry order) that matches becomes the primary result and the rest are still reported in `all`.
+ * When `language` is given only that detector is considered. Otherwise the first detector (in
+ * priority order) that matches becomes the primary result and the rest are still reported in `all`.
  */
-async function detectProject(dir, language) {
-  const selected = language ? detectors.filter((d) => d.language === language) : detectors;
+async function detectProject(dir, options = {}) {
+  const ordered = orderDetectors(options.priority);
+  const selected = options.language ? ordered.filter((d) => d.language === options.language) : ordered;
+  const gitRoot = await findGitRoot(dir);
+  const ctx = { dir, gitRoot, boundary: walkBoundary(dir, gitRoot, options.workspace) };
   const all = [];
   for (const detector of selected) {
-    const result = await detector.detect({ dir });
+    const result = await detector.detect(ctx);
     if (result) all.push(result);
   }
   return { primary: all[0], all }
 }
 
 function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+/**
+ * One detection as exposed by the action (step outputs and the `languages` JSON).
+ *
+ * `manifest` and `lockfile` stay relative to `working-directory`; `workspaceRoot`, `languageVersionFile`
+ * and `cacheDependencyPath` are relative to the workspace (repository) root, so they can be passed
+ * straight to `working-directory:` / `*-version-file:` / `cache-dependency-path:` of later steps.
+ */
+
+
+
+
+
+
+
+
 
 const OUTPUT_KEYS = [
   ['language', 'language'],
   ['name', 'name'],
   ['version', 'version'],
   ['version-source', 'versionSource'],
+  ['version-major', 'versionMajor'],
+  ['version-minor', 'versionMinor'],
+  ['version-patch', 'versionPatch'],
+  ['version-prerelease', 'versionPrerelease'],
+  ['version-build', 'versionBuild'],
+  ['is-prerelease', 'isPrerelease'],
   ['package-manager', 'packageManager'],
   ['package-manager-version', 'packageManagerVersion'],
   ['language-version', 'languageVersion'],
+  ['language-version-source', 'languageVersionSource'],
+  ['language-version-file', 'languageVersionFile'],
   ['manifest', 'manifest'],
   ['lockfile', 'lockfile'],
+  ['workspace-root', 'workspaceRoot'],
+  ['install-command', 'installCommand'],
+  ['cache-dependency-path', 'cacheDependencyPath'],
 ];
 
-function emptyDetection() {
+function emptyOutputs() {
   return {
     language: 'unknown',
     name: '',
     version: '',
     versionSource: '',
+    versionMajor: '',
+    versionMinor: '',
+    versionPatch: '',
+    versionPrerelease: '',
+    versionBuild: '',
+    isPrerelease: 'false',
     packageManager: '',
     packageManagerVersion: '',
     languageVersion: '',
+    languageVersionSource: '',
+    languageVersionFile: '',
     manifest: '',
     lockfile: '',
+    workspaceRoot: '',
+    installCommand: '',
+    cacheDependencyPath: '',
   }
 }
 
-async function writeSummary(all, primary, dir) {
+/** Adds the version components and rebases the setup-facing paths onto the workspace root. */
+function toResult(detection, dir, workspace) {
+  const rebase = (rel) => (rel ? relPosix(workspace, path$1.resolve(dir, rel)) : '');
+  const parts = splitVersion(detection.version);
+  return {
+    ...detection,
+    workspaceRoot: rebase(detection.workspaceRoot || '.'),
+    languageVersionFile: rebase(detection.languageVersionFile),
+    cacheDependencyPath: rebase(detection.cacheDependencyPath),
+    versionMajor: parts.major,
+    versionMinor: parts.minor,
+    versionPatch: parts.patch,
+    versionPrerelease: parts.prerelease,
+    versionBuild: parts.build,
+    isPrerelease: parts.isPrerelease,
+  }
+}
+
+/** Parses `language-priority` (comma, space or newline separated). Unknown names are an error. */
+function parseLanguageList(raw, input) {
+  const items = raw
+    .split(/[\s,]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  for (const item of items) {
+    if (!isLanguage(item)) throw new Error(`Unsupported language "${item}" in ${input}. Expected: ${languages.join(', ')}`)
+  }
+  return [...new Set(items)] 
+}
+
+async function writeSummary(all, dir) {
   // Job summaries are always available on GitHub runners; skip gracefully elsewhere (e.g. @github/local-action).
   if (!process.env['GITHUB_STEP_SUMMARY']) return
   const summary$1 = summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${dir}</code>\n\n`);
@@ -31554,13 +32213,13 @@ async function writeSummary(all, primary, dir) {
         { data: 'Manifest', header: true },
         { data: 'Lockfile', header: true },
       ],
-      ...all.map((d) => [
-        d === primary ? `<strong>${d.language}</strong> (primary)` : d.language,
+      ...all.map((d, i) => [
+        i === 0 ? `<strong>${d.language}</strong> (primary)` : d.language,
         d.name || '—',
         d.version || '—',
         d.versionSource || '—',
         d.packageManagerVersion ? `${d.packageManager} ${d.packageManagerVersion}` : d.packageManager,
-        d.languageVersion || '—',
+        d.languageVersion ? `${d.languageVersion} (${d.languageVersionSource})` : '—',
         d.manifest,
         d.lockfile || '—',
       ]),
@@ -31572,9 +32231,11 @@ async function writeSummary(all, primary, dir) {
 async function run() {
   const workingDirectory = getInput('working-directory') || '.';
   const languageInput = (getInput('language') || 'auto').trim().toLowerCase();
+  const priority = parseLanguageList(getInput('language-priority'), 'language-priority');
   const failOnUnknown = getBooleanInput('fail-on-unknown');
 
-  const dir = path$1.resolve(_nullishCoalesce(process.env['GITHUB_WORKSPACE'], () => ( process.cwd())), workingDirectory);
+  const workspace = path$1.resolve(_nullishCoalesce(process.env['GITHUB_WORKSPACE'], () => ( process.cwd())));
+  const dir = path$1.resolve(workspace, workingDirectory);
 
   let forced;
   if (languageInput !== 'auto') {
@@ -31584,17 +32245,25 @@ async function run() {
     forced = languageInput;
   }
 
+  // A mistyped working-directory must fail loudly, not look like "no project here".
+  const stat = await fs$1.stat(dir).catch(() => undefined);
+  if (!stat) throw new Error(`working-directory "${workingDirectory}" does not exist (resolved to ${dir})`)
+  if (!stat.isDirectory()) throw new Error(`working-directory "${workingDirectory}" is not a directory (resolved to ${dir})`)
+
   info(`Inspecting ${dir}${forced ? ` (language forced to ${forced})` : ''}`);
-  const { primary, all } = await detectProject(dir, forced);
+  const detected = await detectProject(dir, { language: forced, priority, workspace });
+  const all = detected.all.map((d) => toResult(d, dir, workspace));
+  const primary = all[0];
 
   if (all.length > 1) {
     warning(
       `Multiple languages detected (${all.map((d) => d.language).join(', ')}); using "${_optionalChain([primary, 'optionalAccess', _ => _.language])}" as primary. ` +
-        'Set the "language" input to choose explicitly.',
+        'Set the "language" or "language-priority" input to choose explicitly.',
     );
   }
 
-  const values = primary ? { ...primary } : emptyDetection();
+  const values = emptyOutputs();
+  if (primary) for (const key of Object.keys(values) ) values[key] = String(primary[key]);
   for (const [output, key] of OUTPUT_KEYS) setOutput(output, values[key]);
   setOutput('languages', JSON.stringify(all));
 
@@ -31603,12 +32272,12 @@ async function run() {
       `Detected ${primary.language} project "${primary.name || '(unnamed)'}" ` +
         `version ${primary.version || '(unknown)'} using ${primary.packageManager}` +
         `${primary.packageManagerVersion ? ` ${primary.packageManagerVersion}` : ''}` +
-        `${primary.languageVersion ? ` (runtime ${primary.languageVersion})` : ''}`,
+        `${primary.languageVersion ? ` (runtime ${primary.languageVersion} from ${primary.languageVersionSource})` : ''}`,
     );
     if (!primary.version) warning(`Could not determine the application version for ${primary.manifest}`);
   }
 
-  await writeSummary(all, primary, dir);
+  await writeSummary(all, dir);
 
   if (!primary) {
     const message = `No supported project found in ${dir} (looked for Node.js, Python and Go manifests)`;

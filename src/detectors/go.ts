@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext } from '../types.js'
-import { firstExisting, isFile, readText, readVersionFile, walkFiles } from '../utils/fs.js'
-import { miseRuntime, toolVersionsRuntime } from '../utils/runtime.js'
+import { firstExisting, isFile, readText, readVersionFile, relPosix, walkFiles } from '../utils/fs.js'
+import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, type RuntimeHit } from '../utils/runtime.js'
 import { cleanVersion, extractAssignedVersion, gitDescribeTag } from '../utils/version.js'
 
 const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt']
@@ -64,9 +64,20 @@ async function versionFromGoSource(dir: string): Promise<{ version: string; sour
   return undefined
 }
 
+/**
+ * Go tags nested modules with their directory: the module in `tools/` is released as `tools/v1.2.3`.
+ * Returns that prefix (`tools/`) for `dir`, or an empty string for the repository root module.
+ */
+export function moduleTagPrefix(dir: string, gitRoot: string | undefined): string {
+  if (!gitRoot) return ''
+  const rel = relPosix(gitRoot, dir)
+  return rel === '.' || rel.startsWith('../') ? '' : `${rel}/`
+}
+
 export const goDetector: Detector = {
   language: 'go',
-  async detect({ dir }: DetectorContext): Promise<Detection | undefined> {
+  async detect(ctx: DetectorContext): Promise<Detection | undefined> {
+    const { dir } = ctx
     const manifest = await firstExisting(dir, ['go.mod', 'go.work', 'Gopkg.toml'])
     if (!manifest) return undefined
 
@@ -93,15 +104,22 @@ export const goDetector: Detector = {
     }
     if (!version) {
       // Go modules are versioned by git tags, so this is the canonical last resort.
-      const tag = await gitDescribeTag(dir)
+      const tag = await gitDescribeTag(dir, moduleTagPrefix(dir, ctx.gitRoot))
       if (tag) {
         version = tag
         versionSource = 'git-tag'
       }
     }
 
-    const languageVersion =
-      goMod.go || goMod.toolchain || (await toolVersionsRuntime(dir, 'go')) || (await miseRuntime(dir, 'go')) || ''
+    // setup-go reads go.mod / go.work itself (toolchain directive first, then go), so both are readable.
+    const manifestPath = path.join(dir, manifest)
+    const directive = (value: string, field: string): RuntimeHit | undefined =>
+      value ? { value, file: manifestPath, field, setupReadable: true } : undefined
+    const runtime = await resolveRuntime(ctx, (level) => [
+      ...(level === dir ? [() => directive(goMod.go, 'go'), () => directive(goMod.toolchain, 'toolchain')] : []),
+      () => toolVersionsRuntime(level, 'go'),
+      () => miseRuntime(level, 'go'),
+    ])
 
     return {
       language: 'go',
@@ -110,9 +128,13 @@ export const goDetector: Detector = {
       versionSource,
       packageManager: isDep ? 'dep' : 'go',
       packageManagerVersion: goMod.toolchain,
-      languageVersion,
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: '.',
+      // A bare go.work has no module of its own to download for; run the detection on a member module instead.
+      installCommand: isDep ? 'dep ensure' : manifest === 'go.mod' ? 'go mod download' : '',
+      cacheDependencyPath: lockfile,
     }
   },
 }

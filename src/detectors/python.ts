@@ -1,10 +1,12 @@
+import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { parse as parseToml } from 'smol-toml'
 import type { Detection, Detector, DetectorContext, PackageManager } from '../types.js'
-import { firstExisting, isFile, readText, readVersionFile, walkFiles } from '../utils/fs.js'
+import { ancestors, firstExisting, isFile, readText, readVersionFile, relPosix } from '../utils/fs.js'
 import { parseIni } from '../utils/ini.js'
-import { miseRuntime, toolVersionsRuntime, versionFileRuntime } from '../utils/runtime.js'
+import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, versionFileRuntime, type RuntimeCandidate, type RuntimeHit } from '../utils/runtime.js'
 import { cleanVersion, extractAssignedVersion, gitDescribeTag } from '../utils/version.js'
+import { matchesWorkspacePatterns } from '../utils/workspace.js'
 
 type PythonPackageManager = Extract<PackageManager, 'pip' | 'poetry' | 'pipenv' | 'uv' | 'pdm' | 'hatch'>
 
@@ -12,15 +14,50 @@ type Table = Record<string, unknown>
 
 const MANIFESTS = ['pyproject.toml', 'setup.cfg', 'setup.py', 'Pipfile', 'requirements.txt'] as const
 
-/** Lockfiles in priority order — the first one found wins. */
-const LOCKFILES: ReadonlyArray<{ file: string; pm: PythonPackageManager }> = [
+/** Lockfiles in priority order — the first one found wins. `pylock.toml` (PEP 751) is tool-agnostic. */
+const LOCKFILES: ReadonlyArray<{ file: string; pm?: PythonPackageManager }> = [
   { file: 'uv.lock', pm: 'uv' },
   { file: 'poetry.lock', pm: 'poetry' },
   { file: 'pdm.lock', pm: 'pdm' },
   { file: 'Pipfile.lock', pm: 'pipenv' },
+  { file: 'pylock.toml' },
 ]
 
+/** PEP 751 named lock files: `pylock.<name>.toml` (the name contains no dots). */
+const NAMED_PYLOCK = /^pylock\.[^.]+\.toml$/
+
 const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt']
+
+/** Version-module file names checked inside a package directory. */
+const VERSION_MODULES = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py']
+
+/** Top-level directories that are never the project's own package (tests, docs, vendored code, ...). */
+const NON_PROJECT_DIRS = new Set([
+  'src',
+  'test',
+  'tests',
+  'testing',
+  'doc',
+  'docs',
+  'example',
+  'examples',
+  'script',
+  'scripts',
+  'tools',
+  'benchmark',
+  'benchmarks',
+  'third_party',
+  'thirdparty',
+  'vendor',
+  'vendored',
+  '_vendor',
+  'external',
+  'build',
+  'dist',
+  'site-packages',
+  'node_modules',
+  'migrations',
+])
 
 function table(value: unknown): Table | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Table) : undefined
@@ -28,6 +65,10 @@ function table(value: unknown): Table | undefined {
 
 function str(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
 function get(root: Table | undefined, ...keys: string[]): unknown {
@@ -157,28 +198,79 @@ function usesScmVersioning(pyproject: Pyproject | undefined): boolean {
   return false
 }
 
-/** Scans conventional locations (`pkg/__init__.py`, `src/pkg/_version.py`, ...) for a `__version__` assignment. */
-async function scanForDunderVersion(dir: string, projectName: string): Promise<{ version: string; source: string } | undefined> {
-  const moduleNames = projectName ? [projectName.replace(/-/g, '_').toLowerCase(), projectName.toLowerCase()] : []
-  const fileNames = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py']
-  const candidates: string[] = []
-  for (const mod of moduleNames) {
-    for (const root of ['src', '']) {
-      for (const file of fileNames) candidates.push(path.join(root, mod, file))
+/** Importable package directories directly in the project root or in `src/`, minus tests, docs, vendored code, .... */
+async function topLevelPackages(dir: string): Promise<string[]> {
+  const found: string[] = []
+  for (const root of ['src', '']) {
+    let entries: import('node:fs').Dirent[]
+    try {
+      entries = await fs.readdir(path.join(dir, root), { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name)) continue
+      if (NON_PROJECT_DIRS.has(entry.name.toLowerCase())) continue
+      if (await isFile(path.join(dir, root, entry.name, '__init__.py'))) found.push(root ? `${root}/${entry.name}` : entry.name)
     }
   }
-  for (const candidate of candidates) {
-    const source = await readText(path.join(dir, candidate))
-    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined
-    if (v) return { version: v, source: candidate }
+  return found.sort()
+}
+
+/**
+ * Looks for a `__version__` assignment in the project's own package: the module named after the project
+ * (`my-app` → `my_app`), otherwise the only top-level package in the root or `src/`. Several candidate
+ * packages make the guess ambiguous, so nothing is reported then — better no version than another
+ * package's (e.g. a vendored library's) version.
+ */
+async function scanForDunderVersion(dir: string, projectName: string): Promise<{ version: string; source: string } | undefined> {
+  const named = projectName ? [...new Set([projectName.replace(/[-.]/g, '_').toLowerCase(), projectName.toLowerCase()])] : []
+  const packageDirs: string[] = []
+  for (const mod of named) for (const root of ['src', '']) packageDirs.push(root ? `${root}/${mod}` : mod)
+  const packages = await topLevelPackages(dir)
+  if (packages.length === 1) packageDirs.push(packages[0]!)
+
+  for (const pkgDir of packageDirs) {
+    for (const file of VERSION_MODULES) {
+      const candidate = `${pkgDir}/${file}`
+      const source = await readText(path.join(dir, candidate))
+      const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined
+      if (v) return { version: v, source: candidate }
+    }
   }
-  // Generic fallback: shallow walk for any version-ish module.
-  const files = (await walkFiles(dir, { maxDepth: 3 })).filter((f) => fileNames.includes(path.basename(f)))
-  files.sort((a, b) => a.split(path.sep).length - b.split(path.sep).length || a.localeCompare(b))
-  for (const file of files) {
-    const source = await readText(path.join(dir, file))
-    const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined
-    if (v) return { version: v, source: file }
+  return undefined
+}
+
+async function findLockfile(dir: string): Promise<string | undefined> {
+  const fixed = await firstExisting(dir, LOCKFILES.map((l) => l.file))
+  if (fixed) return fixed
+  let entries: string[]
+  try {
+    entries = await fs.readdir(dir)
+  } catch {
+    return undefined
+  }
+  for (const entry of entries.filter((e) => NAMED_PYLOCK.test(e)).sort()) {
+    if (await isFile(path.join(dir, entry))) return entry
+  }
+  return undefined
+}
+
+interface UvWorkspace {
+  dir: string
+  pyproject: Pyproject
+}
+
+/** Nearest parent directory whose `[tool.uv.workspace]` lists `dir` in `members` (and not in `exclude`). */
+async function findUvWorkspace({ dir, boundary }: DetectorContext): Promise<UvWorkspace | undefined> {
+  for (const level of ancestors(dir, boundary ?? dir)) {
+    const pyproject = await readPyproject(level)
+    const workspace = table(get(pyproject?.tool, 'uv', 'workspace'))
+    if (!pyproject || !workspace) continue
+    const rel = relPosix(level, dir)
+    if (matchesWorkspacePatterns(strings(workspace['members']), rel) && !matchesWorkspacePatterns(strings(workspace['exclude']), rel)) {
+      return { dir: level, pyproject }
+    }
   }
   return undefined
 }
@@ -187,11 +279,13 @@ function detectPackageManager(
   pyproject: Pyproject | undefined,
   lockfile: string,
   manifests: Set<string>,
+  uvWorkspace: UvWorkspace | undefined,
 ): { pm: PythonPackageManager; version: string } {
   const tool = pyproject?.tool
 
-  const lock = LOCKFILES.find((l) => l.file === lockfile)
-  if (lock) return { pm: lock.pm, version: '' }
+  const lock = LOCKFILES.find((l) => l.file === path.posix.basename(lockfile))
+  if (lock?.pm) return { pm: lock.pm, version: '' }
+  if (uvWorkspace) return { pm: 'uv', version: '' }
 
   if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: str(get(tool, 'uv', 'required-version')) ?? '' }
   if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: str(get(tool, 'poetry', 'requires-poetry')) ?? '' }
@@ -212,40 +306,73 @@ async function poetryLockVersion(dir: string): Promise<string> {
   return match?.[1] ?? ''
 }
 
-async function pythonVersion(dir: string, pyproject: Pyproject | undefined, setupCfg: Record<string, Record<string, string>>): Promise<string> {
-  const fromFile = await versionFileRuntime(dir, ['.python-version'])
-  if (fromFile) return fromFile
+/** PEP 508 project name. Anything else is not put into a shell command. */
+const VALID_PROJECT_NAME = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/
 
-  const requiresPython = str(pyproject?.project?.['requires-python'])
-  if (requiresPython) return requiresPython.trim()
-
-  const poetryPython = get(pyproject?.tool, 'poetry', 'dependencies', 'python')
-  if (typeof poetryPython === 'string') return poetryPython.trim()
-
-  const pipfile = await readText(path.join(dir, 'Pipfile'))
-  if (pipfile) {
-    try {
-      const requires = table((parseToml(pipfile) as Table)['requires'])
-      const v = str(requires?.['python_full_version']) ?? str(requires?.['python_version'])
-      if (v) return v
-    } catch {
-      // ignore malformed Pipfile
+function installCommand(pm: PythonPackageManager, lockfile: string, manifests: Set<string>, uvMember: string | undefined): string {
+  const lock = path.posix.basename(lockfile)
+  switch (pm) {
+    case 'uv': {
+      const base = lock === 'uv.lock' ? 'uv sync --locked' : 'uv sync'
+      return uvMember && VALID_PROJECT_NAME.test(uvMember) ? `${base} --package ${uvMember}` : base
     }
+    case 'poetry':
+      return 'poetry install'
+    case 'pdm':
+      return lock === 'pdm.lock' ? 'pdm sync' : 'pdm install'
+    case 'hatch':
+      return 'hatch env create'
+    case 'pipenv':
+      return lock === 'Pipfile.lock' ? 'pipenv install --deploy' : 'pipenv install'
+    case 'pip':
+      if (manifests.has('requirements.txt')) return 'pip install -r requirements.txt'
+      return manifests.has('pyproject.toml') || manifests.has('setup.py') || manifests.has('setup.cfg') ? 'pip install .' : ''
   }
+}
 
-  const pythonRequires = setupCfg['options']?.['python_requires']
-  if (pythonRequires) return pythonRequires
+/**
+ * Python version declared in pyproject.toml. setup-python reads `project.requires-python` when a
+ * `[project]` table exists and Poetry's `python` dependency only when it does not.
+ */
+function pyprojectRuntime(dir: string, pyproject: Pyproject | undefined): RuntimeHit | undefined {
+  if (!pyproject) return undefined
+  const file = path.join(dir, 'pyproject.toml')
+  const requiresPython = str(pyproject.project?.['requires-python'])?.trim()
+  if (requiresPython) return { value: requiresPython, file, field: 'project.requires-python', setupReadable: true }
+  const poetryPython = str(get(pyproject.tool, 'poetry', 'dependencies', 'python'))?.trim()
+  if (poetryPython) {
+    return { value: poetryPython, file, field: 'tool.poetry.dependencies.python', setupReadable: !('project' in pyproject.raw) }
+  }
+  return undefined
+}
 
-  const runtimeTxt = await readVersionFile(path.join(dir, 'runtime.txt'))
-  const runtimeMatch = runtimeTxt ? /^python-?(.+)$/i.exec(runtimeTxt) : null
-  if (runtimeMatch?.[1]) return runtimeMatch[1]
+async function pipfileRuntime(dir: string): Promise<RuntimeHit | undefined> {
+  const file = path.join(dir, 'Pipfile')
+  const pipfile = await readText(file)
+  if (!pipfile) return undefined
+  try {
+    const requires = table((parseToml(pipfile) as Table)['requires'])
+    for (const key of ['python_full_version', 'python_version']) {
+      const v = str(requires?.[key])
+      if (v) return { value: v, file, field: `requires.${key}`, setupReadable: true }
+    }
+  } catch {
+    // ignore malformed Pipfile
+  }
+  return undefined
+}
 
-  return (await toolVersionsRuntime(dir, 'python')) ?? (await miseRuntime(dir, 'python')) ?? ''
+async function runtimeTxt(dir: string): Promise<RuntimeHit | undefined> {
+  const file = path.join(dir, 'runtime.txt')
+  const value = await readVersionFile(file)
+  const match = value ? /^python-?(.+)$/i.exec(value) : null
+  return match?.[1] ? { value: match[1], file, field: '', setupReadable: false } : undefined
 }
 
 export const pythonDetector: Detector = {
   language: 'python',
-  async detect({ dir }: DetectorContext): Promise<Detection | undefined> {
+  async detect(ctx: DetectorContext): Promise<Detection | undefined> {
+    const { dir } = ctx
     const present = new Set<string>()
     for (const m of MANIFESTS) if (await isFile(path.join(dir, m))) present.add(m)
     const manifest = MANIFESTS.find((m) => present.has(m))
@@ -255,6 +382,7 @@ export const pythonDetector: Detector = {
     const setupCfgText = present.has('setup.cfg') ? await readText(path.join(dir, 'setup.cfg')) : undefined
     const setupCfg = setupCfgText ? parseIni(setupCfgText) : {}
     const setupPy = present.has('setup.py') ? await readText(path.join(dir, 'setup.py')) : undefined
+    const uvWorkspace = await findUvWorkspace(ctx)
 
     // --- name ---
     const name =
@@ -315,12 +443,44 @@ export const pythonDetector: Detector = {
     }
 
     // --- package manager ---
-    const lockfile = (await firstExisting(dir, LOCKFILES.map((l) => l.file))) ?? ''
-    const pmInfo = detectPackageManager(pyproject, lockfile, present)
+    // Workspace members share the workspace root's lockfile.
+    const ownLock = await findLockfile(dir)
+    const rootLock = !ownLock && uvWorkspace && (await isFile(path.join(uvWorkspace.dir, 'uv.lock'))) ? path.join(uvWorkspace.dir, 'uv.lock') : undefined
+    const lockfile = ownLock ?? (rootLock ? relPosix(dir, rootLock) : '')
+    const pmInfo = detectPackageManager(pyproject, lockfile, present, uvWorkspace)
     let packageManagerVersion = pmInfo.version
     if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = await poetryLockVersion(dir)
-    if (pmInfo.pm === 'uv' && !packageManagerVersion) packageManagerVersion = str(get(pyproject?.tool, 'uv', 'required-version')) ?? ''
+    if (pmInfo.pm === 'uv' && !packageManagerVersion) {
+      packageManagerVersion =
+        str(get(pyproject?.tool, 'uv', 'required-version')) ?? str(get(uvWorkspace?.pyproject.tool, 'uv', 'required-version')) ?? ''
+    }
     if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = str(get(pyproject?.tool, 'poetry', 'requires-poetry')) ?? ''
+
+    // --- runtime ---
+    const runtime = await resolveRuntime(ctx, (level): RuntimeCandidate[] =>
+      level === dir
+        ? [
+            () => versionFileRuntime(level, ['.python-version']),
+            () => pyprojectRuntime(level, pyproject),
+            () => pipfileRuntime(level),
+            () => {
+              const v = setupCfg['options']?.['python_requires']
+              return v ? { value: v, file: path.join(level, 'setup.cfg'), field: 'options.python_requires', setupReadable: false } : undefined
+            },
+            () => runtimeTxt(level),
+            () => toolVersionsRuntime(level, 'python'),
+            () => miseRuntime(level, 'python'),
+          ]
+        : [
+            () => versionFileRuntime(level, ['.python-version']),
+            () => (level === uvWorkspace?.dir ? pyprojectRuntime(level, uvWorkspace.pyproject) : undefined),
+            () => toolVersionsRuntime(level, 'python'),
+            () => miseRuntime(level, 'python'),
+          ],
+    )
+
+    const installRoot = uvWorkspace?.dir ?? dir
+    const cacheDependencyPath = lockfile || (present.has('requirements.txt') ? 'requirements.txt' : manifest)
 
     return {
       language: 'python',
@@ -329,9 +489,12 @@ export const pythonDetector: Detector = {
       versionSource,
       packageManager: pmInfo.pm,
       packageManagerVersion,
-      languageVersion: await pythonVersion(dir, pyproject, setupCfg),
+      ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
+      workspaceRoot: relPosix(dir, installRoot),
+      installCommand: installCommand(pmInfo.pm, lockfile, present, uvWorkspace && name ? name : undefined),
+      cacheDependencyPath,
     }
   },
 }

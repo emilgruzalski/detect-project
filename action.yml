@@ -8,13 +8,17 @@ branding:
 
 inputs:
   working-directory:
-    description: 'Directory to inspect, relative to the workspace root'
+    description: 'Directory to inspect, relative to the workspace root. The step fails if it does not exist.'
     required: false
     default: '.'
   language:
     description: 'Force a language instead of auto-detecting. One of: auto, node, python, go'
     required: false
     default: 'auto'
+  language-priority:
+    description: 'Languages to prefer as primary when several are detected, comma separated (e.g. "python,node"). Unlisted languages follow in the default order node, python, go'
+    required: false
+    default: ''
   fail-on-unknown:
     description: 'Fail the step when no supported project is detected'
     required: false
@@ -29,16 +33,38 @@ outputs:
     description: 'Application version (empty if it could not be determined)'
   version-source:
     description: 'Where the version was read from, e.g. package.json, pyproject.toml, VERSION, version.go, git-tag'
+  version-major:
+    description: 'Major component of the version (e.g. 1 for 1.4.2-rc.1)'
+  version-minor:
+    description: 'Minor component of the version, 0 when absent'
+  version-patch:
+    description: 'Patch component of the version, 0 when absent'
+  version-prerelease:
+    description: 'Pre-release identifier (rc.1, beta2, dev3), empty for final releases'
+  version-build:
+    description: 'Build metadata after "+" (e.g. 45 for 1.2.3+45), empty when absent'
+  is-prerelease:
+    description: 'true when the version has a pre-release identifier, otherwise false'
   package-manager:
     description: 'Detected package manager: npm, yarn, pnpm, bun, pip, poetry, pipenv, uv, pdm, hatch, go, dep'
   package-manager-version:
     description: 'Package manager version, if declared (packageManager field, engines, poetry.lock header, ...)'
   language-version:
     description: 'Runtime version constraint (.nvmrc, engines.node, .python-version, requires-python, go directive, ...)'
+  language-version-source:
+    description: 'Where language-version was read from, relative to working-directory (e.g. .nvmrc, package.json:engines.node, ../../.python-version)'
+  language-version-file:
+    description: 'File language-version was read from, relative to the workspace root, when the official setup action can read it via node-version-file / python-version-file / go-version-file; empty otherwise'
   manifest:
-    description: 'Path to the manifest file the detection is based on'
+    description: 'Path to the manifest file the detection is based on, relative to working-directory'
   lockfile:
-    description: 'Path to the lockfile, if one exists'
+    description: 'Path to the lockfile relative to working-directory (may point to the workspace root, e.g. ../../pnpm-lock.yaml), empty if none'
+  workspace-root:
+    description: 'Directory to install dependencies from, relative to the workspace root: the monorepo workspace root for workspace members, otherwise working-directory'
+  install-command:
+    description: 'Command that installs the dependencies (npm ci, pnpm install --frozen-lockfile, uv sync --locked, ...), meant to run in workspace-root; empty when there is no safe default'
+  cache-dependency-path:
+    description: 'Dependency file for setup-* caching, relative to the workspace root (lockfile, or requirements.txt / manifest for pip); empty when none'
   languages:
     description: 'JSON array with the full detection result for every language found in the directory'
 

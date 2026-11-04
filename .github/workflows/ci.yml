@@ -53,6 +53,12 @@ jobs:
               package-manager: pnpm
               package-manager-version: '9.12.0'
               language-version: '20.18.0'
+              language-version-file: __tests__/fixtures/node-pnpm/.nvmrc
+              version-major: '1'
+              is-prerelease: 'false'
+              workspace-root: __tests__/fixtures/node-pnpm
+              install-command: pnpm install --frozen-lockfile
+              cache-dependency-path: __tests__/fixtures/node-pnpm/pnpm-lock.yaml
           - name: python-poetry
             working-directory: __tests__/fixtures/python-poetry
             fail-on-unknown: true
@@ -62,6 +68,10 @@ jobs:
               package-manager: poetry
               package-manager-version: '1.8.4'
               language-version: '^3.11'
+              language-version-source: pyproject.toml:tool.poetry.dependencies.python
+              language-version-file: __tests__/fixtures/python-poetry/pyproject.toml
+              install-command: poetry install
+              cache-dependency-path: __tests__/fixtures/python-poetry/poetry.lock
           - name: go-module
             working-directory: __tests__/fixtures/go-module
             fail-on-unknown: true
@@ -71,6 +81,39 @@ jobs:
               package-manager: go
               package-manager-version: '1.22.7'
               language-version: '1.22.0'
+              language-version-file: __tests__/fixtures/go-module/go.mod
+              install-command: go mod download
+              cache-dependency-path: __tests__/fixtures/go-module/go.sum
+          - name: node workspace member
+            working-directory: __tests__/fixtures/node-workspace/apps/api
+            fail-on-unknown: true
+            expected:
+              language: node
+              version: '2.1.0-rc.1'
+              version-major: '2'
+              version-minor: '1'
+              version-patch: '0'
+              version-prerelease: rc.1
+              is-prerelease: 'true'
+              package-manager: pnpm
+              package-manager-version: '10.4.1'
+              language-version: '22.11.0'
+              language-version-source: ../../.nvmrc
+              language-version-file: __tests__/fixtures/node-workspace/.nvmrc
+              lockfile: ../../pnpm-lock.yaml
+              workspace-root: __tests__/fixtures/node-workspace
+              install-command: pnpm install --frozen-lockfile
+              cache-dependency-path: __tests__/fixtures/node-workspace/pnpm-lock.yaml
+          - name: mixed, language-priority go
+            working-directory: __tests__/fixtures/mixed
+            language-priority: go
+            expected:
+              language: go
+              languages: '["go","node"]'
+          - name: missing working-directory
+            working-directory: does-not-exist
+            expect-failure: true
+            expected: {}
           - name: mixed, auto
             working-directory: __tests__/fixtures/mixed
             expected:
@@ -100,6 +143,7 @@ jobs:
         with:
           working-directory: ${{ matrix.working-directory }}
           language: ${{ matrix.language || 'auto' }}
+          language-priority: ${{ matrix.language-priority || '' }}
           fail-on-unknown: ${{ matrix.fail-on-unknown || false }}
       - name: Assert outputs
         env:
