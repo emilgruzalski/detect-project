@@ -1,6 +1,8 @@
+import * as path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { goDetector, parseGoMod } from '../src/detectors/go.js'
-import { cleanup, makeProject } from './helpers.js'
+import { detectProject } from '../src/detect.js'
+import { goDetector, moduleTagPrefix, parseGoMod } from '../src/detectors/go.js'
+import { cleanup, git, makeGitRepo, makeProject } from './helpers.js'
 
 const dirs: string[] = []
 const project = async (files: Record<string, string>) => {
@@ -76,5 +78,88 @@ describe('goDetector', () => {
   it('falls back to .tool-versions for the go version', async () => {
     const dir = await project({ 'go.mod': 'module x\n', '.tool-versions': 'golang 1.23.1\n' })
     expect((await goDetector.detect({ dir }))?.languageVersion).toBe('1.23.1')
+  })
+
+  // Regression: `var Version string = "…"` (a declaration with an explicit type) was not recognised.
+  it.each([
+    'var Version string = "1.2.3"',
+    'const Version string = "1.2.3"',
+    'var (\n\tVersion   string = "1.2.3"\n\tGitCommit string = ""\n)',
+  ])('reads a typed declaration: %j', async (decl) => {
+    const dir = await project({ 'go.mod': 'module x\n\ngo 1.22\n', 'internal/version/version.go': `package version\n\n${decl}\n` })
+    expect(await goDetector.detect({ dir })).toMatchObject({ version: '1.2.3', versionSource: 'internal/version/version.go' })
+  })
+
+  it('still ignores a typed placeholder', async () => {
+    const dir = await project({ 'go.mod': 'module x\n', 'version.go': 'package main\n\nvar Version string = "dev"\n' })
+    expect((await goDetector.detect({ dir }))?.version).toBe('')
+  })
+})
+
+describe('goDetector: git tags', () => {
+  // Regression: `git describe --tags` returned the nearest tag of any shape ("nightly") and nested
+  // modules got their prefixed tag ("tools/v0.2.0") verbatim.
+  it('uses release tags only and the module-path prefix for nested modules', async () => {
+    const root = await makeGitRepo({ 'go.mod': 'module example.com/repo\n\ngo 1.22\n', 'tools/go.mod': 'module example.com/repo/tools\n\ngo 1.22\n' })
+    dirs.push(root)
+    git(root, 'tag', 'v1.4.0')
+    git(root, 'commit', '-q', '--allow-empty', '-m', 'tools release')
+    git(root, 'tag', 'tools/v0.2.0')
+    git(root, 'tag', 'nightly')
+
+    expect((await detectProject(root)).primary).toMatchObject({ version: '1.4.0', versionSource: 'git-tag' })
+    expect((await detectProject(path.join(root, 'tools'))).primary).toMatchObject({ version: '0.2.0', versionSource: 'git-tag' })
+  })
+
+  it('computes the tag prefix from the git root', () => {
+    const root = path.resolve('/repo')
+    expect(moduleTagPrefix(root, root)).toBe('')
+    expect(moduleTagPrefix(path.join(root, 'sdk/go'), root)).toBe('sdk/go/')
+    expect(moduleTagPrefix(path.join(root, 'x'), undefined)).toBe('')
+  })
+})
+
+describe('goDetector: runtime, install command and cache path', () => {
+  it('reports go.mod as the setup-go readable version file', async () => {
+    const dir = await project({ 'go.mod': 'module x\n\ngo 1.22.0\ntoolchain go1.22.5\n', 'go.sum': '' })
+    expect(await goDetector.detect({ dir })).toMatchObject({
+      languageVersion: '1.22.0',
+      languageVersionSource: 'go.mod:go',
+      languageVersionFile: 'go.mod',
+      installCommand: 'go mod download',
+      cacheDependencyPath: 'go.sum',
+      workspaceRoot: '.',
+    })
+  })
+
+  it('falls back to the toolchain directive', async () => {
+    const dir = await project({ 'go.mod': 'module x\n\ntoolchain go1.23.2\n' })
+    expect(await goDetector.detect({ dir })).toMatchObject({ languageVersion: '1.23.2', languageVersionSource: 'go.mod:toolchain' })
+  })
+
+  it.each([
+    ['golang 1.23.1', '.tool-versions'],
+    // setup-go only reads the `golang` entry of .tool-versions.
+    ['go 1.23.1', ''],
+  ])('.tool-versions %j → version file %j', async (line, file) => {
+    const dir = await project({ 'go.mod': 'module x\n', '.tool-versions': `${line}\n` })
+    expect(await goDetector.detect({ dir })).toMatchObject({ languageVersion: '1.23.1', languageVersionSource: '.tool-versions', languageVersionFile: file })
+  })
+
+  it('finds .tool-versions in a parent directory within the boundary', async () => {
+    const root = await project({ '.tool-versions': 'golang 1.24.0\n', 'svc/go.mod': 'module x\n' })
+    expect(await goDetector.detect({ dir: path.join(root, 'svc'), boundary: root })).toMatchObject({
+      languageVersion: '1.24.0',
+      languageVersionSource: '../.tool-versions',
+      languageVersionFile: '../.tool-versions',
+    })
+  })
+
+  it.each([
+    [{ 'Gopkg.toml': '' }, 'dep ensure'],
+    [{ 'go.work': 'go 1.22\n\nuse ./a\n' }, ''],
+  ])('%j → install command %j', async (files, command) => {
+    const dir = await project(files)
+    expect((await goDetector.detect({ dir }))?.installCommand).toBe(command)
   })
 })

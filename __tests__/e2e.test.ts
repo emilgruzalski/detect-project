@@ -39,7 +39,7 @@ async function runAction(inputs: Record<string, string>) {
     GITHUB_STEP_SUMMARY: summaryFile,
   }
   // The runner fills omitted inputs with the defaults from action.yml.
-  const withDefaults = { 'working-directory': '.', language: 'auto', 'fail-on-unknown': 'false', ...inputs }
+  const withDefaults = { 'working-directory': '.', language: 'auto', 'language-priority': '', 'fail-on-unknown': 'false', ...inputs }
   for (const [name, value] of Object.entries(withDefaults)) env[`INPUT_${name.toUpperCase()}`] = value
 
   const result = spawnSync(process.execPath, [entry], { cwd: root, env, encoding: 'utf8' })
@@ -61,6 +61,12 @@ describe('e2e: dist/index.js', () => {
         'package-manager': 'pnpm',
         'package-manager-version': '9.12.0',
         'language-version': '20.18.0',
+        'language-version-file': '__tests__/fixtures/node-pnpm/.nvmrc',
+        'version-major': '1',
+        'is-prerelease': 'false',
+        'workspace-root': '__tests__/fixtures/node-pnpm',
+        'install-command': 'pnpm install --frozen-lockfile',
+        'cache-dependency-path': '__tests__/fixtures/node-pnpm/pnpm-lock.yaml',
       },
     },
     {
@@ -71,6 +77,10 @@ describe('e2e: dist/index.js', () => {
         'package-manager': 'poetry',
         'package-manager-version': '1.8.4',
         'language-version': '^3.11',
+        'language-version-source': 'pyproject.toml:tool.poetry.dependencies.python',
+        'language-version-file': '__tests__/fixtures/python-poetry/pyproject.toml',
+        'install-command': 'poetry install',
+        'cache-dependency-path': '__tests__/fixtures/python-poetry/poetry.lock',
       },
     },
     {
@@ -81,6 +91,31 @@ describe('e2e: dist/index.js', () => {
         'package-manager': 'go',
         'package-manager-version': '1.22.7',
         'language-version': '1.22.0',
+        'language-version-file': '__tests__/fixtures/go-module/go.mod',
+        'install-command': 'go mod download',
+        'cache-dependency-path': '__tests__/fixtures/go-module/go.sum',
+      },
+    },
+    {
+      // A pnpm workspace member: lockfile, packageManager and .nvmrc live in the workspace root.
+      fixture: 'node-workspace/apps/api',
+      expected: {
+        language: 'node',
+        version: '2.1.0-rc.1',
+        'version-major': '2',
+        'version-minor': '1',
+        'version-patch': '0',
+        'version-prerelease': 'rc.1',
+        'is-prerelease': 'true',
+        'package-manager': 'pnpm',
+        'package-manager-version': '10.4.1',
+        'language-version': '22.11.0',
+        'language-version-source': '../../.nvmrc',
+        'language-version-file': '__tests__/fixtures/node-workspace/.nvmrc',
+        lockfile: '../../pnpm-lock.yaml',
+        'workspace-root': '__tests__/fixtures/node-workspace',
+        'install-command': 'pnpm install --frozen-lockfile',
+        'cache-dependency-path': '__tests__/fixtures/node-workspace/pnpm-lock.yaml',
       },
     },
   ])('detects the $fixture fixture', async ({ fixture, expected }) => {
@@ -111,6 +146,21 @@ describe('e2e: dist/index.js', () => {
 
     expect(res.status).toBe(0)
     expect(res.outputs['language']).toBe('unknown')
+  })
+
+  it('honours language-priority', async () => {
+    const res = await runAction({ 'working-directory': '__tests__/fixtures/mixed', 'language-priority': 'go' })
+
+    expect(res.status).toBe(0)
+    expect(res.outputs['language']).toBe('go')
+    expect(JSON.parse(res.outputs['languages']!).map((d: { language: string }) => d.language)).toEqual(['go', 'node'])
+  })
+
+  it('fails the step when working-directory does not exist', async () => {
+    const res = await runAction({ 'working-directory': 'does-not-exist' })
+
+    expect(res.status).toBe(1)
+    expect(res.stdout).toContain('::error::working-directory "does-not-exist" does not exist')
   })
 
   it('fails the step on an unknown project when fail-on-unknown is set', async () => {

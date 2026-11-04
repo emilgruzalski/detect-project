@@ -1,9 +1,10 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
+/** True when `file` exists as any kind of entry (file, directory, symlink). */
 export async function exists(file: string): Promise<boolean> {
   try {
-    await fs.access(file)
+    await fs.lstat(file)
     return true
   } catch {
     return false
@@ -13,6 +14,14 @@ export async function exists(file: string): Promise<boolean> {
 export async function isFile(file: string): Promise<boolean> {
   try {
     return (await fs.stat(file)).isFile()
+  } catch {
+    return false
+  }
+}
+
+export async function isDirectory(file: string): Promise<boolean> {
+  try {
+    return (await fs.stat(file)).isDirectory()
   } catch {
     return false
   }
@@ -53,6 +62,45 @@ export async function readVersionFile(file: string): Promise<string | undefined>
     .map((l) => l.trim())
     .find((l) => l.length > 0 && !l.startsWith('#'))
   return line
+}
+
+/** `path.relative` with forward slashes; `.` when both paths are the same directory. */
+export function relPosix(from: string, to: string): string {
+  return path.relative(from, to).split(path.sep).join('/') || '.'
+}
+
+/** True when `child` is `parent` itself or lies somewhere below it. */
+export function isInside(child: string, parent: string): boolean {
+  const rel = path.relative(parent, child)
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
+}
+
+/**
+ * Parent directories of `dir`, nearest first, up to and including `boundary`.
+ * Empty when `dir` is the boundary or does not lie inside it.
+ */
+export function ancestors(dir: string, boundary: string): string[] {
+  if (!isInside(dir, boundary)) return []
+  const result: string[] = []
+  let current = dir
+  while (path.relative(boundary, current) !== '') {
+    const parent = path.dirname(current)
+    if (parent === current) break
+    result.push(parent)
+    current = parent
+  }
+  return result
+}
+
+/** Nearest directory at or above `dir` that contains a `.git` entry (directory, or file for worktrees/submodules). */
+export async function findGitRoot(dir: string): Promise<string | undefined> {
+  let current = path.resolve(dir)
+  for (;;) {
+    if (await exists(path.join(current, '.git'))) return current
+    const parent = path.dirname(current)
+    if (parent === current) return undefined
+    current = parent
+  }
 }
 
 export interface WalkOptions {
