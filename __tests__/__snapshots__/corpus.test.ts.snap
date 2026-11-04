@@ -1,5 +1,46 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`App-vNext/Polly > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dotnet restore",
+      "language": "dotnet",
+      "languageVersion": "10.0.403",
+      "languageVersionFile": "global.json",
+      "languageVersionSource": "global.json:sdk.version",
+      "lockfile": "",
+      "manifest": "Polly.slnx",
+      "name": "Polly",
+      "packageManager": "dotnet",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "src/Polly": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dotnet restore",
+      "language": "dotnet",
+      "languageVersion": "10.0.403",
+      "languageVersionFile": "../../global.json",
+      "languageVersionSource": "../../global.json:sdk.version",
+      "lockfile": "",
+      "manifest": "Polly.csproj",
+      "name": "Polly",
+      "packageManager": "dotnet",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
 exports[`BurntSushi/ripgrep > matches the snapshot 1`] = `
 {
   ".": [
@@ -36,6 +77,56 @@ exports[`BurntSushi/ripgrep > matches the snapshot 1`] = `
 }
 `;
 
+exports[`android/nowinandroid > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "",
+      "language": "java",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "build.gradle.kts",
+      "name": "nowinandroid",
+      "packageManager": "gradle",
+      "packageManagerVersion": "9.7.1",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "app": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "",
+      "language": "java",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "build.gradle.kts",
+      "name": "app",
+      "packageManager": "gradle",
+      "packageManagerVersion": "9.7.1",
+      "version": "0.1.2+8",
+      "versionSource": "build.gradle.kts:versionName",
+      "workspaceRoot": "..",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: java",
+    "app: java",
+    "app-nia-catalog: java",
+    "benchmarks: java",
+    "build-logic: java",
+    "lint: java",
+    "ui-test-hilt-manifest: java",
+  ],
+}
+`;
+
 exports[`cfug/dio > matches the snapshot 1`] = `
 {
   ".": [
@@ -62,6 +153,7 @@ exports[`cfug/dio > matches the snapshot 1`] = `
     "dio_test: dart",
     "example_dart: dart",
     "example_flutter_app: dart",
+    "example_flutter_app/android: java",
     "plugins/compatibility_layer: dart",
     "plugins/cookie_manager: dart",
     "plugins/http2_adapter: dart",
@@ -132,6 +224,29 @@ exports[`cli/cli > matches the snapshot 1`] = `
       "name": "github.com/cli/cli/v2",
       "packageManager": "go",
       "packageManagerVersion": "1.27.3",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`composer/composer > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "composer.lock",
+      "installCommand": "composer install --no-interaction",
+      "language": "php",
+      "languageVersion": "7.2.5",
+      "languageVersionFile": "",
+      "languageVersionSource": "composer.lock:platform-overrides.php",
+      "lockfile": "composer.lock",
+      "manifest": "composer.json",
+      "name": "composer/composer",
+      "packageManager": "composer",
+      "packageManagerVersion": "",
       "version": "",
       "versionSource": "",
       "workspaceRoot": ".",
@@ -254,6 +369,57 @@ exports[`go-chi/chi > matches the snapshot 1`] = `
 }
 `;
 
+exports[`google/gson > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "",
+      "language": "java",
+      "languageVersion": "8",
+      "languageVersionFile": "",
+      "languageVersionSource": "pom.xml:properties.maven.compiler.release",
+      "lockfile": "",
+      "manifest": "pom.xml",
+      "name": "gson-parent",
+      "packageManager": "maven",
+      "packageManagerVersion": "",
+      "version": "2.15.1-SNAPSHOT",
+      "versionSource": "pom.xml:version",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: java",
+    "extras: java",
+    "gson: java",
+    "metrics: java",
+    "proto: java",
+    "test-graal-native-image: java",
+    "test-jpms: java",
+    "test-shrinker: java",
+  ],
+  "gson": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "",
+      "language": "java",
+      "languageVersion": "8",
+      "languageVersionFile": "",
+      "languageVersionSource": "../pom.xml:properties.maven.compiler.release",
+      "lockfile": "",
+      "manifest": "pom.xml",
+      "name": "gson",
+      "packageManager": "maven",
+      "packageManagerVersion": "",
+      "version": "2.15.1-SNAPSHOT",
+      "versionSource": "pom.xml:parent.version",
+      "workspaceRoot": "..",
+    },
+  ],
+}
+`;
+
 exports[`junegunn/fzf > matches the snapshot 1`] = `
 {
   ".": [
@@ -271,6 +437,61 @@ exports[`junegunn/fzf > matches the snapshot 1`] = `
       "packageManagerVersion": "",
       "version": "0.74",
       "versionSource": "main.go",
+      "workspaceRoot": ".",
+    },
+    {
+      "cacheDependencyPath": "Gemfile.lock",
+      "installCommand": "bundle install",
+      "language": "ruby",
+      "languageVersion": "3.4",
+      "languageVersionFile": ".tool-versions",
+      "languageVersionSource": ".tool-versions",
+      "lockfile": "Gemfile.lock",
+      "manifest": "Gemfile",
+      "name": "",
+      "packageManager": "bundler",
+      "packageManagerVersion": "2.6.2",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`laravel/laravel > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "npm install",
+      "language": "node",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "package.json",
+      "name": "",
+      "packageManager": "npm",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "composer install --no-interaction",
+      "language": "php",
+      "languageVersion": "^8.3",
+      "languageVersionFile": "",
+      "languageVersionSource": "composer.json:require.php",
+      "lockfile": "",
+      "manifest": "composer.json",
+      "name": "laravel/laravel",
+      "packageManager": "composer",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
       "workspaceRoot": ".",
     },
   ],
@@ -429,6 +650,29 @@ exports[`python-poetry/poetry > matches the snapshot 1`] = `
 }
 `;
 
+exports[`rack/rack > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "bundle install",
+      "language": "ruby",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "Gemfile",
+      "name": "rack",
+      "packageManager": "bundler",
+      "packageManagerVersion": "",
+      "version": "3.2.0",
+      "versionSource": "lib/rack/version.rb",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
 exports[`rrousselGit/riverpod > matches the snapshot 1`] = `
 {
   ".": [
@@ -513,6 +757,75 @@ exports[`serde-rs/serde > matches the snapshot 1`] = `
 }
 `;
 
+exports[`serilog/serilog > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dotnet restore",
+      "language": "dotnet",
+      "languageVersion": "10.0.100",
+      "languageVersionFile": "global.json",
+      "languageVersionSource": "global.json:sdk.version",
+      "lockfile": "",
+      "manifest": "Serilog.sln",
+      "name": "Serilog",
+      "packageManager": "dotnet",
+      "packageManagerVersion": "",
+      "version": "4.4.1",
+      "versionSource": "Directory.Version.props:VersionPrefix",
+      "workspaceRoot": ".",
+    },
+  ],
+  "src/Serilog": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dotnet restore",
+      "language": "dotnet",
+      "languageVersion": "10.0.100",
+      "languageVersionFile": "../../global.json",
+      "languageVersionSource": "../../global.json:sdk.version",
+      "lockfile": "",
+      "manifest": "Serilog.csproj",
+      "name": "Serilog",
+      "packageManager": "dotnet",
+      "packageManagerVersion": "",
+      "version": "4.4.1",
+      "versionSource": "../../Directory.Version.props:VersionPrefix",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`sinatra/sinatra > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "bundle install",
+      "language": "ruby",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "Gemfile",
+      "name": "sinatra",
+      "packageManager": "bundler",
+      "packageManagerVersion": "",
+      "version": "4.2.1",
+      "versionSource": "lib/sinatra/version.rb",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: ruby",
+    "rack-protection: ruby",
+    "sinatra-contrib: ruby",
+  ],
+}
+`;
+
 exports[`spf13/cobra > matches the snapshot 1`] = `
 {
   ".": [
@@ -530,6 +843,29 @@ exports[`spf13/cobra > matches the snapshot 1`] = `
       "packageManagerVersion": "",
       "version": "",
       "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`spring-projects/spring-petclinic > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "./mvnw -B dependency:go-offline",
+      "language": "java",
+      "languageVersion": "17",
+      "languageVersionFile": "",
+      "languageVersionSource": "pom.xml:properties.java.version",
+      "lockfile": "",
+      "manifest": "pom.xml",
+      "name": "spring-petclinic",
+      "packageManager": "maven",
+      "packageManagerVersion": "3.9.16",
+      "version": "4.0.0-SNAPSHOT",
+      "versionSource": "pom.xml:version",
       "workspaceRoot": ".",
     },
   ],

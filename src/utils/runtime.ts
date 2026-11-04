@@ -4,7 +4,7 @@ import type { DetectorContext } from '../types.js'
 import { ancestors, readText, readVersionFile, relPosix } from './fs.js'
 import { cleanVersion } from './version.js'
 
-export type Runtime = 'node' | 'python' | 'go' | 'rust' | 'dart' | 'flutter'
+export type Runtime = 'node' | 'python' | 'go' | 'rust' | 'dart' | 'flutter' | 'ruby' | 'php' | 'dotnet' | 'java'
 
 /** A runtime version together with where it was found. */
 export interface RuntimeHit {
@@ -28,11 +28,15 @@ const ASDF_NAMES: Record<Runtime, readonly string[]> = {
   rust: ['rust'],
   dart: ['dart'],
   flutter: ['flutter'],
+  ruby: ['ruby'],
+  php: ['php'],
+  dotnet: ['dotnet', 'dotnet-core'],
+  java: ['java'],
 }
 
 /**
- * `.tool-versions` names the setup actions understand (setup-go only matches `golang`); the Rust, Dart
- * and Flutter setup actions do not read `.tool-versions` at all.
+ * `.tool-versions` names the setup actions understand (setup-go only matches `golang`); the Rust, Dart,
+ * Flutter and .NET setup actions do not read `.tool-versions` at all.
  */
 const TOOL_VERSIONS_READABLE: Record<Runtime, readonly string[]> = {
   node: ['nodejs', 'node'],
@@ -41,6 +45,17 @@ const TOOL_VERSIONS_READABLE: Record<Runtime, readonly string[]> = {
   rust: [],
   dart: [],
   flutter: [],
+  ruby: ['ruby'],
+  php: ['php'],
+  dotnet: [],
+  java: ['java'],
+}
+
+/** mise `[tools]` entries the setup actions read: setup-node (`node`, string or `{ version }`), setup-ruby (`ruby`). */
+function miseReadable(runtime: Runtime, tool: string, form: 'string' | 'object'): boolean {
+  if (runtime === 'node') return tool === 'node'
+  if (runtime === 'ruby') return tool === 'ruby' && form === 'string'
+  return false
 }
 
 /** Looks up a runtime version in asdf's `.tool-versions` in `dir`. */
@@ -61,7 +76,7 @@ export async function toolVersionsRuntime(dir: string, runtime: Runtime): Promis
 
 /**
  * Looks up a runtime version in `mise.toml` / `.mise.toml` / `.mise/config.toml` (`[tools]` table) in `dir`.
- * Only setup-node reads mise files, and only `tools.node` given as a string or `{ version = … }`.
+ * Only setup-node (`tools.node`) and setup-ruby (`tools.ruby`) read mise files (see `miseReadable`).
  */
 export async function miseRuntime(dir: string, runtime: Runtime): Promise<RuntimeHit | undefined> {
   for (const name of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
@@ -78,12 +93,11 @@ export async function miseRuntime(dir: string, runtime: Runtime): Promise<Runtim
     if (!tools || typeof tools !== 'object') continue
     for (const tool of ASDF_NAMES[runtime]) {
       const value = (tools as Record<string, unknown>)[tool]
-      const readable = runtime === 'node' && tool === 'node'
       const hit = (v: string, setupReadable: boolean): RuntimeHit => ({ value: cleanVersion(v), file, field: `tools.${tool}`, setupReadable })
-      if (typeof value === 'string') return hit(value, readable)
+      if (typeof value === 'string') return hit(value, miseReadable(runtime, tool, 'string'))
       if (Array.isArray(value) && typeof value[0] === 'string') return hit(value[0], false)
       if (value && typeof value === 'object' && typeof (value as { version?: unknown }).version === 'string') {
-        return hit((value as { version: string }).version, readable)
+        return hit((value as { version: string }).version, miseReadable(runtime, tool, 'object'))
       }
     }
   }

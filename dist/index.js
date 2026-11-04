@@ -36570,7 +36570,7 @@ function parse$1(src, reviver, options) {
     return doc.toJS(Object.assign({ reviver: _reviver }, options));
 }
 
-function _nullishCoalesce$d(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$6(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } async function _asyncOptionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$i(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$a(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } async function _asyncOptionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /**
  * Per-run memo of file system reads. Detection of one directory — and even more so `discover`, which
  * inspects many directories sharing the same parents — reads the same package.json, lockfiles and
@@ -36611,7 +36611,7 @@ async function exists(file) {
 }
 
 async function isFile(file) {
-  return await _asyncNullishCoalesce$6(await _asyncOptionalChain$1([(await statOf(file)), 'optionalAccess', async _ => _.isFile, 'call', async _2 => _2()]), async () => ( false))
+  return await _asyncNullishCoalesce$a(await _asyncOptionalChain$4([(await statOf(file)), 'optionalAccess', async _ => _.isFile, 'call', async _2 => _2()]), async () => ( false))
 }
 
 async function readText(file) {
@@ -36718,7 +36718,7 @@ const DEFAULT_IGNORE = [
 
 /** Breadth-first walk over files under `dir`, yielding paths relative to `dir`. */
 async function walkFiles(dir, opts) {
-  const ignore = new Set(_nullishCoalesce$d(opts.ignore, () => ( DEFAULT_IGNORE)));
+  const ignore = new Set(_nullishCoalesce$i(opts.ignore, () => ( DEFAULT_IGNORE)));
   const results = [];
   let frontier = [''];
   for (let depth = 0; depth <= opts.maxDepth && frontier.length > 0; depth++) {
@@ -37777,7 +37777,7 @@ function parse(toml, options = {}) {
     return res;
 }
 
-function _nullishCoalesce$c(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$b(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
+function _nullishCoalesce$h(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$h(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Minimal INI parser sufficient for `setup.cfg` (sections, `key = value`, `key: value`, indented continuations). */
 function parseIni(text) {
   const result = {};
   let section;
@@ -37785,7 +37785,7 @@ function parseIni(text) {
   for (const rawLine of text.split(/\r?\n/)) {
     if (/^\s*[#;]/.test(rawLine) || rawLine.trim() === '') continue
     const sectionMatch = /^\s*\[([^\]]+)\]\s*$/.exec(rawLine);
-    if (_optionalChain$b([sectionMatch, 'optionalAccess', _ => _[1]])) {
+    if (_optionalChain$h([sectionMatch, 'optionalAccess', _ => _[1]])) {
       section = result[sectionMatch[1].trim()] ??= {};
       lastKey = undefined;
       continue
@@ -37793,19 +37793,19 @@ function parseIni(text) {
     if (!section) continue
     if (/^\s/.test(rawLine) && lastKey !== undefined) {
       // continuation line of a multi-line value
-      section[lastKey] = `${_nullishCoalesce$c(section[lastKey], () => ( ''))}\n${rawLine.trim()}`.trim();
+      section[lastKey] = `${_nullishCoalesce$h(section[lastKey], () => ( ''))}\n${rawLine.trim()}`.trim();
       continue
     }
     const kv = /^([^=:]+?)\s*[=:]\s*(.*)$/.exec(rawLine);
-    if (_optionalChain$b([kv, 'optionalAccess', _2 => _2[1]]) !== undefined) {
+    if (_optionalChain$h([kv, 'optionalAccess', _2 => _2[1]]) !== undefined) {
       lastKey = kv[1].trim();
-      section[lastKey] = (_nullishCoalesce$c(kv[2], () => ( ''))).trim();
+      section[lastKey] = (_nullishCoalesce$h(kv[2], () => ( ''))).trim();
     }
   }
   return result
 }
 
-function _nullishCoalesce$b(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$a(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$g(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$g(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /** Normalises things like `v1.2.3`, `"1.2.3"`, `== 1.2.3` into `1.2.3`. Returns empty string for empty input. */
 function cleanVersion(raw) {
   if (!raw) return ''
@@ -37828,7 +37828,7 @@ function extractAssignedVersion(source, identifiers) {
       'm',
     );
     const match = re.exec(source);
-    if (_optionalChain$a([match, 'optionalAccess', _ => _[1]])) return cleanVersion(match[1])
+    if (_optionalChain$g([match, 'optionalAccess', _ => _[1]])) return cleanVersion(match[1])
   }
   return undefined
 }
@@ -37869,8 +37869,8 @@ function staticGlobPrefix(pattern) {
  * pattern is stripped. Either way the result must look like a release version.
  */
 async function gitDescribeTag(cwd, options = {}) {
-  const custom = (_nullishCoalesce$b(options.patterns, () => ( []))).map((p) => p.trim()).filter(Boolean);
-  const prefix = custom.length ? '' : (_nullishCoalesce$b(options.prefix, () => ( '')));
+  const custom = (_nullishCoalesce$g(options.patterns, () => ( []))).map((p) => p.trim()).filter(Boolean);
+  const prefix = custom.length ? '' : (_nullishCoalesce$g(options.prefix, () => ( '')));
   const escaped = escapeGlob(prefix);
   const patterns = custom.length ? custom : [`${escaped}v[0-9]*.[0-9]*`, `${escaped}[0-9]*.[0-9]*`];
   let out = '';
@@ -37888,7 +37888,7 @@ async function gitDescribeTag(cwd, options = {}) {
   let tag = out.trim();
   if (!tag) return undefined
   const strip = custom.length
-    ? _nullishCoalesce$b(custom
+    ? _nullishCoalesce$g(custom
         .map(staticGlobPrefix)
         .filter((p) => tag.startsWith(p))
         .sort((a, b) => b.length - a.length)[0], () => ( ''))
@@ -37921,7 +37921,7 @@ const NO_PARTS = { major: '', minor: '', patch: '', prerelease: '', build: '', i
 function splitVersion(version) {
   const m = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.\d+)*(.*)$/.exec(version.trim().replace(/^\d+!/, ''));
   if (!m) return { ...NO_PARTS }
-  let rest = _nullishCoalesce$b(m[4], () => ( ''));
+  let rest = _nullishCoalesce$g(m[4], () => ( ''));
   let build = '';
   const plus = rest.indexOf('+');
   if (plus >= 0) {
@@ -37931,16 +37931,16 @@ function splitVersion(version) {
   let prerelease = rest.replace(/^[-._]/, '');
   if (/^(?:post|rev|r)\d*$/i.test(prerelease)) prerelease = '';
   return {
-    major: _nullishCoalesce$b(m[1], () => ( '')),
-    minor: _nullishCoalesce$b(m[2], () => ( '0')),
-    patch: _nullishCoalesce$b(m[3], () => ( '0')),
+    major: _nullishCoalesce$g(m[1], () => ( '')),
+    minor: _nullishCoalesce$g(m[2], () => ( '0')),
+    patch: _nullishCoalesce$g(m[3], () => ( '0')),
     prerelease,
     build,
     isPrerelease: prerelease !== '',
   }
 }
 
-function _optionalChain$9(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _optionalChain$f(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /** A value together with where it was found, e.g. `{ value: '1.2.3', source: 'package.json' }`. */
 
 
@@ -37967,13 +37967,13 @@ async function resolveFirst(
   const tried = [];
   for (const source of sources) {
     const hit = await source.read();
-    if (_optionalChain$9([hit, 'optionalAccess', _ => _.value])) {
-      _optionalChain$9([ctx, 'access', _2 => _2.debug, 'optionalCall', _3 => _3(`${label}: "${hit.value}" from ${source.name}${tried.length ? ` (nothing in: ${tried.join(', ')})` : ''}`)]);
+    if (_optionalChain$f([hit, 'optionalAccess', _ => _.value])) {
+      _optionalChain$f([ctx, 'access', _2 => _2.debug, 'optionalCall', _3 => _3(`${label}: "${hit.value}" from ${source.name}${tried.length ? ` (nothing in: ${tried.join(', ')})` : ''}`)]);
       return hit
     }
     tried.push(source.name);
   }
-  _optionalChain$9([ctx, 'access', _4 => _4.debug, 'optionalCall', _5 => _5(`${label}: not found (tried: ${tried.join(', ') || 'no sources'})`)]);
+  _optionalChain$f([ctx, 'access', _4 => _4.debug, 'optionalCall', _5 => _5(`${label}: not found (tried: ${tried.join(', ') || 'no sources'})`)]);
   return undefined
 }
 
@@ -37999,12 +37999,12 @@ function versionFileSource(dir) {
 /** The latest release tag (see `gitDescribeTag`), honouring the `tag-pattern` input. */
 function gitTagSource(ctx, prefix = '') {
   return {
-    name: _optionalChain$9([ctx, 'access', _6 => _6.tagPatterns, 'optionalAccess', _7 => _7.length]) ? `git tag (${ctx.tagPatterns.join(', ')})` : 'git tag',
+    name: _optionalChain$f([ctx, 'access', _6 => _6.tagPatterns, 'optionalAccess', _7 => _7.length]) ? `git tag (${ctx.tagPatterns.join(', ')})` : 'git tag',
     read: async () => versionHit(await gitDescribeTag(ctx.dir, { prefix, patterns: ctx.tagPatterns }), 'git-tag'),
   }
 }
 
-function _nullishCoalesce$a(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$8(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; } async function _asyncOptionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
+function _nullishCoalesce$f(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$e(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; } async function _asyncOptionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
  * Versions recorded by release tooling, independent of the language: release-please's manifest,
  * bump-my-version / bump2version and commitizen. They matter most for projects whose manifest carries
  * no version (Go modules, private Node apps, requirements.txt-only Python apps).
@@ -38012,7 +38012,7 @@ function _nullishCoalesce$a(lhs, rhsFn) { if (lhs != null) { return lhs; } else 
 
 
 
-function table$3(value) {
+function table$4(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value ) : undefined
 }
 
@@ -38024,8 +38024,8 @@ function tomlTable(text, ...keys) {
   } catch (e) {
     return undefined
   }
-  for (const key of keys) current = _optionalChain$8([table$3, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
-  return table$3(current)
+  for (const key of keys) current = _optionalChain$e([table$4, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
+  return table$4(current)
 }
 
 function normalizeKey(key) {
@@ -38041,12 +38041,12 @@ function releasePleaseSource(ctx) {
   return {
     name: '.release-please-manifest.json',
     read: async () => {
-      for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$a(ctx.boundary, () => ( ctx.dir)))]) {
+      for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$f(ctx.boundary, () => ( ctx.dir)))]) {
         const file = path$1.join(level, '.release-please-manifest.json');
-        const manifest = table$3(await readJson(file));
+        const manifest = table$4(await readJson(file));
         if (!manifest) continue
         const key = relPosix(level, ctx.dir);
-        const entry = _optionalChain$8([Object, 'access', _3 => _3.entries, 'call', _4 => _4(manifest), 'access', _5 => _5.find, 'call', _6 => _6(([k]) => normalizeKey(k) === key), 'optionalAccess', _7 => _7[1]]);
+        const entry = _optionalChain$e([Object, 'access', _3 => _3.entries, 'call', _4 => _4(manifest), 'access', _5 => _5.find, 'call', _6 => _6(([k]) => normalizeKey(k) === key), 'optionalAccess', _7 => _7[1]]);
         return typeof entry === 'string' ? versionHit(entry, `${relPosix(ctx.dir, file)}:${key}`) : undefined
       }
       return undefined
@@ -38062,10 +38062,10 @@ function bumpversionSource(dir) {
   return {
     name: 'bumpversion current_version',
     read: async () => {
-      const fromToml = async (file) => await _asyncOptionalChain([tomlTable, 'call', async _8 => _8(await readText(path$1.join(dir, file)), 'tool', 'bumpversion'), 'optionalAccess', async _9 => _9['current_version']]);
+      const fromToml = async (file) => await _asyncOptionalChain$3([tomlTable, 'call', async _8 => _8(await readText(path$1.join(dir, file)), 'tool', 'bumpversion'), 'optionalAccess', async _9 => _9['current_version']]);
       const fromIni = async (file) => {
         const text = await readText(path$1.join(dir, file));
-        return text ? _optionalChain$8([parseIni, 'call', _10 => _10(text), 'access', _11 => _11['bumpversion'], 'optionalAccess', _12 => _12['current_version']]) : undefined
+        return text ? _optionalChain$e([parseIni, 'call', _10 => _10(text), 'access', _11 => _11['bumpversion'], 'optionalAccess', _12 => _12['current_version']]) : undefined
       };
       const candidates = [
         ['.bumpversion.toml', 'tool.bumpversion.current_version', () => fromToml('.bumpversion.toml')],
@@ -38094,12 +38094,12 @@ function commitizenYaml(text) {
   let indent;
   for (const line of lines.slice(start + 1)) {
     if (/^\s*(#.*)?$/.test(line)) continue
-    const lineIndent = _nullishCoalesce$a(_optionalChain$8([/^\s*/, 'access', _13 => _13.exec, 'call', _14 => _14(line), 'optionalAccess', _15 => _15[0], 'access', _16 => _16.length]), () => ( 0));
+    const lineIndent = _nullishCoalesce$f(_optionalChain$e([/^\s*/, 'access', _13 => _13.exec, 'call', _14 => _14(line), 'optionalAccess', _15 => _15[0], 'access', _16 => _16.length]), () => ( 0));
     if (lineIndent === 0) break
     indent ??= lineIndent;
     if (lineIndent !== indent) continue
     const kv = /^\s*([\w-]+)\s*:\s*(.*?)\s*(?:\s#.*)?$/.exec(line);
-    if (_optionalChain$8([kv, 'optionalAccess', _17 => _17[1]])) result[kv[1]] = _optionalChain$8([kv, 'access', _18 => _18[2], 'optionalAccess', _19 => _19.replace, 'call', _20 => _20(/^(["'])(.*)\1$/, '$2')]);
+    if (_optionalChain$e([kv, 'optionalAccess', _17 => _17[1]])) result[kv[1]] = _optionalChain$e([kv, 'access', _18 => _18[2], 'optionalAccess', _19 => _19.replace, 'call', _20 => _20(/^(["'])(.*)\1$/, '$2')]);
   }
   return result
 }
@@ -38138,7 +38138,7 @@ function commitizenSource(dir) {
 
 function jsonTable(text, key) {
   try {
-    return table$3(_optionalChain$8([table$3, 'call', _21 => _21(JSON.parse(text)), 'optionalAccess', _22 => _22[key]]))
+    return table$4(_optionalChain$e([table$4, 'call', _21 => _21(JSON.parse(text)), 'optionalAccess', _22 => _22[key]]))
   } catch (e2) {
     return undefined
   }
@@ -38149,7 +38149,7 @@ function releaseToolSources(ctx) {
   return [releasePleaseSource(ctx), bumpversionSource(ctx.dir), commitizenSource(ctx.dir)]
 }
 
-function _nullishCoalesce$9(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$7(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$e(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$d(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
  
 
 
@@ -38174,11 +38174,15 @@ const ASDF_NAMES = {
   rust: ['rust'],
   dart: ['dart'],
   flutter: ['flutter'],
+  ruby: ['ruby'],
+  php: ['php'],
+  dotnet: ['dotnet', 'dotnet-core'],
+  java: ['java'],
 };
 
 /**
- * `.tool-versions` names the setup actions understand (setup-go only matches `golang`); the Rust, Dart
- * and Flutter setup actions do not read `.tool-versions` at all.
+ * `.tool-versions` names the setup actions understand (setup-go only matches `golang`); the Rust, Dart,
+ * Flutter and .NET setup actions do not read `.tool-versions` at all.
  */
 const TOOL_VERSIONS_READABLE = {
   node: ['nodejs', 'node'],
@@ -38187,7 +38191,18 @@ const TOOL_VERSIONS_READABLE = {
   rust: [],
   dart: [],
   flutter: [],
+  ruby: ['ruby'],
+  php: ['php'],
+  dotnet: [],
+  java: ['java'],
 };
+
+/** mise `[tools]` entries the setup actions read: setup-node (`node`, string or `{ version }`), setup-ruby (`ruby`). */
+function miseReadable(runtime, tool, form) {
+  if (runtime === 'node') return tool === 'node'
+  if (runtime === 'ruby') return tool === 'ruby' && form === 'string'
+  return false
+}
 
 /** Looks up a runtime version in asdf's `.tool-versions` in `dir`. */
 async function toolVersionsRuntime(dir, runtime) {
@@ -38207,7 +38222,7 @@ async function toolVersionsRuntime(dir, runtime) {
 
 /**
  * Looks up a runtime version in `mise.toml` / `.mise.toml` / `.mise/config.toml` (`[tools]` table) in `dir`.
- * Only setup-node reads mise files, and only `tools.node` given as a string or `{ version = … }`.
+ * Only setup-node (`tools.node`) and setup-ruby (`tools.ruby`) read mise files (see `miseReadable`).
  */
 async function miseRuntime(dir, runtime) {
   for (const name of ['mise.toml', '.mise.toml', '.mise/config.toml']) {
@@ -38224,12 +38239,11 @@ async function miseRuntime(dir, runtime) {
     if (!tools || typeof tools !== 'object') continue
     for (const tool of ASDF_NAMES[runtime]) {
       const value = (tools )[tool];
-      const readable = runtime === 'node' && tool === 'node';
       const hit = (v, setupReadable) => ({ value: cleanVersion(v), file, field: `tools.${tool}`, setupReadable });
-      if (typeof value === 'string') return hit(value, readable)
+      if (typeof value === 'string') return hit(value, miseReadable(runtime, tool, 'string'))
       if (Array.isArray(value) && typeof value[0] === 'string') return hit(value[0], false)
       if (value && typeof value === 'object' && typeof (value ).version === 'string') {
-        return hit((value ).version, readable)
+        return hit((value ).version, miseReadable(runtime, tool, 'object'))
       }
     }
   }
@@ -38263,18 +38277,18 @@ async function resolveRuntime(
   label,
   chain,
 ) {
-  const levels = [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$9(ctx.boundary, () => ( ctx.dir)))];
+  const levels = [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$e(ctx.boundary, () => ( ctx.dir)))];
   for (const level of levels) {
     for (const candidate of chain(level)) {
       const hit = await candidate();
-      if (_optionalChain$7([hit, 'optionalAccess', _ => _.value])) {
+      if (_optionalChain$d([hit, 'optionalAccess', _ => _.value])) {
         const source = relPosix(ctx.dir, hit.file) + (hit.field ? `:${hit.field}` : '');
-        _optionalChain$7([ctx, 'access', _2 => _2.debug, 'optionalCall', _3 => _3(`${label}: "${hit.value}" from ${source}${hit.setupReadable ? '' : ' (not readable by the setup action)'}`)]);
+        _optionalChain$d([ctx, 'access', _2 => _2.debug, 'optionalCall', _3 => _3(`${label}: "${hit.value}" from ${source}${hit.setupReadable ? '' : ' (not readable by the setup action)'}`)]);
         return hit
       }
     }
   }
-  _optionalChain$7([ctx, 'access', _4 => _4.debug, 'optionalCall', _5 => _5(`${label}: not found in ${levels.map((l) => relPosix(ctx.dir, l)).join(', ')}`)]);
+  _optionalChain$d([ctx, 'access', _4 => _4.debug, 'optionalCall', _5 => _5(`${label}: not found in ${levels.map((l) => relPosix(ctx.dir, l)).join(', ')}`)]);
   return undefined
 }
 
@@ -38292,7 +38306,7 @@ function runtimeFields(
   }
 }
 
-function _nullishCoalesce$8(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$6(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
+function _nullishCoalesce$d(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$c(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
  * Helpers for recognising workspace (monorepo) membership: glob patterns as used by
  * `package.json#workspaces`, `pnpm-workspace.yaml` and `[tool.uv.workspace]`.
  */
@@ -38364,7 +38378,7 @@ function parsePnpmWorkspacePackages(text) {
   const lines = text.split(/\r?\n/);
   const start = lines.findIndex((l) => /^packages\s*:/.test(l));
   if (start < 0) return []
-  const inline = _nullishCoalesce$8(_optionalChain$6([/^packages\s*:\s*(.*)$/, 'access', _ => _.exec, 'call', _2 => _2(lines[start]), 'optionalAccess', _3 => _3[1], 'optionalAccess', _4 => _4.replace, 'call', _5 => _5(/\s+#.*$/, ''), 'access', _6 => _6.trim, 'call', _7 => _7()]), () => ( ''));
+  const inline = _nullishCoalesce$d(_optionalChain$c([/^packages\s*:\s*(.*)$/, 'access', _ => _.exec, 'call', _2 => _2(lines[start]), 'optionalAccess', _3 => _3[1], 'optionalAccess', _4 => _4.replace, 'call', _5 => _5(/\s+#.*$/, ''), 'access', _6 => _6.trim, 'call', _7 => _7()]), () => ( ''));
   if (inline.startsWith('[')) {
     return inline
       .replace(/^\[|\]$/g, '')
@@ -38376,20 +38390,20 @@ function parsePnpmWorkspacePackages(text) {
   for (const line of lines.slice(start + 1)) {
     if (/^\s*(#.*)?$/.test(line)) continue
     if (!/^\s/.test(line)) break // next top-level key
-    const item = _optionalChain$6([/^\s+-\s*(.+?)\s*(?:\s#.*)?$/, 'access', _8 => _8.exec, 'call', _9 => _9(line), 'optionalAccess', _10 => _10[1]]);
+    const item = _optionalChain$c([/^\s+-\s*(.+?)\s*(?:\s#.*)?$/, 'access', _8 => _8.exec, 'call', _9 => _9(line), 'optionalAccess', _10 => _10[1]]);
     if (item) result.push(unquote(item));
   }
   return result
 }
 
-function _nullishCoalesce$7(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$5(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$c(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$9(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$b(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
 
-function table$2(value) {
+function table$3(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value ) : undefined
 }
 
-function str$2(value) {
+function str$3(value) {
   return typeof value === 'string' ? value : undefined
 }
 
@@ -38401,7 +38415,7 @@ async function readPubspec(dir) {
   const text = await readText(path$1.join(dir, 'pubspec.yaml'));
   if (text === undefined) return undefined
   try {
-    return _nullishCoalesce$7(table$2(parse$1(text, { schema: 'failsafe' })), () => ( {}))
+    return _nullishCoalesce$c(table$3(parse$1(text, { schema: 'failsafe' })), () => ( {}))
   } catch (e) {
     return {}
   }
@@ -38409,7 +38423,7 @@ async function readPubspec(dir) {
 
 /** Flutter app or package: depends on the Flutter SDK, constrains its version or has a `flutter:` section. */
 function isFlutter(pubspec) {
-  return _optionalChain$5([table$2, 'call', _ => _(_optionalChain$5([table$2, 'call', _2 => _2(pubspec['dependencies']), 'optionalAccess', _3 => _3['flutter']])), 'optionalAccess', _4 => _4['sdk']]) === 'flutter' || _optionalChain$5([table$2, 'call', _5 => _5(pubspec['environment']), 'optionalAccess', _6 => _6['flutter']]) !== undefined || 'flutter' in pubspec
+  return _optionalChain$b([table$3, 'call', _ => _(_optionalChain$b([table$3, 'call', _2 => _2(pubspec['dependencies']), 'optionalAccess', _3 => _3['flutter']])), 'optionalAccess', _4 => _4['sdk']]) === 'flutter' || _optionalChain$b([table$3, 'call', _5 => _5(pubspec['environment']), 'optionalAccess', _6 => _6['flutter']]) !== undefined || 'flutter' in pubspec
 }
 
 
@@ -38422,10 +38436,10 @@ function isFlutter(pubspec) {
  * pubspec whose `workspace:` list contains it is the root that owns pubspec.lock.
  */
 async function findPubWorkspace({ dir, boundary }, pubspec) {
-  if (str$2(pubspec['resolution']) !== 'workspace') return undefined
-  for (const level of ancestors(dir, _nullishCoalesce$7(boundary, () => ( dir)))) {
+  if (str$3(pubspec['resolution']) !== 'workspace') return undefined
+  for (const level of ancestors(dir, _nullishCoalesce$c(boundary, () => ( dir)))) {
     const root = await readPubspec(level);
-    const members = _optionalChain$5([root, 'optionalAccess', _7 => _7['workspace']]);
+    const members = _optionalChain$b([root, 'optionalAccess', _7 => _7['workspace']]);
     if (!root || !Array.isArray(members)) continue
     if (matchesWorkspacePatterns(members.filter((m) => typeof m === 'string'), relPosix(level, dir))) return { dir: level, pubspec: root }
   }
@@ -38436,20 +38450,20 @@ async function findPubWorkspace({ dir, boundary }, pubspec) {
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 
 function pubspecRuntime(dir, pubspec, key, readable) {
-  const value = _optionalChain$5([str$2, 'call', _8 => _8(_optionalChain$5([table$2, 'call', _9 => _9(_optionalChain$5([pubspec, 'optionalAccess', _10 => _10['environment']])), 'optionalAccess', _11 => _11[key]])), 'optionalAccess', _12 => _12.trim, 'call', _13 => _13()]);
+  const value = _optionalChain$b([str$3, 'call', _8 => _8(_optionalChain$b([table$3, 'call', _9 => _9(_optionalChain$b([pubspec, 'optionalAccess', _10 => _10['environment']])), 'optionalAccess', _11 => _11[key]])), 'optionalAccess', _12 => _12.trim, 'call', _13 => _13()]);
   return value ? { value, file: path$1.join(dir, 'pubspec.yaml'), field: `environment.${key}`, setupReadable: readable(value) } : undefined
 }
 
 /** FVM pins: `.fvmrc` (FVM 3, `{"flutter": "3.24.0"}`) and the older `.fvm/fvm_config.json` (`flutterSdkVersion`). */
 async function fvmRuntime(dir) {
   const rcFile = path$1.join(dir, '.fvmrc');
-  const rc = table$2(await readJson(rcFile));
-  const rcVersion = _optionalChain$5([str$2, 'call', _14 => _14(_optionalChain$5([rc, 'optionalAccess', _15 => _15['flutter']])), 'optionalAccess', _16 => _16.trim, 'call', _17 => _17()]);
+  const rc = table$3(await readJson(rcFile));
+  const rcVersion = _optionalChain$b([str$3, 'call', _14 => _14(_optionalChain$b([rc, 'optionalAccess', _15 => _15['flutter']])), 'optionalAccess', _16 => _16.trim, 'call', _17 => _17()]);
   if (rcVersion) return { value: rcVersion, file: rcFile, field: 'flutter', setupReadable: true }
   const configFile = path$1.join(dir, '.fvm', 'fvm_config.json');
-  const config = table$2(await readJson(configFile));
+  const config = table$3(await readJson(configFile));
   for (const field of ['flutterSdkVersion', 'flutter']) {
-    const value = _optionalChain$5([str$2, 'call', _18 => _18(_optionalChain$5([config, 'optionalAccess', _19 => _19[field]])), 'optionalAccess', _20 => _20.trim, 'call', _21 => _21()]);
+    const value = _optionalChain$b([str$3, 'call', _18 => _18(_optionalChain$b([config, 'optionalAccess', _19 => _19[field]])), 'optionalAccess', _20 => _20.trim, 'call', _21 => _21()]);
     if (value) return { value, file: configFile, field, setupReadable: true }
   }
   return undefined
@@ -38466,7 +38480,7 @@ const dartDetector = {
     const workspace = await findPubWorkspace(ctx, pubspec);
 
     const version = await resolveFirst(ctx, 'dart version', [
-      { name: 'pubspec.yaml:version', read: () => versionHit(str$2(pubspec['version']), manifest) },
+      { name: 'pubspec.yaml:version', read: () => versionHit(str$3(pubspec['version']), manifest) },
       ...releaseToolSources(ctx),
     ]);
 
@@ -38475,14 +38489,14 @@ const dartDetector = {
     const lockfilePath = (await isFile(ownLock)) ? ownLock : rootLock && (await isFile(rootLock)) ? rootLock : undefined;
     const lockfile = lockfilePath ? relPosix(dir, lockfilePath) : '';
 
-    const levelPubspec = (level) => (level === dir ? pubspec : level === _optionalChain$5([workspace, 'optionalAccess', _22 => _22.dir]) ? workspace.pubspec : undefined);
+    const levelPubspec = (level) => (level === dir ? pubspec : level === _optionalChain$b([workspace, 'optionalAccess', _22 => _22.dir]) ? workspace.pubspec : undefined);
     // Flutter projects install the Flutter SDK (Dart comes with it), so their runtime is the Flutter version,
     // read the way subosito/flutter-action's flutter-version-file does. An FVM pin is project-wide and decides
     // what gets installed (like a rust-toolchain file), so it wins over a package's `environment.flutter`
     // constraint wherever it sits up to the repository root; asdf/mise come last as for the other languages.
     // Pure Dart projects report the Dart SDK.
     const runtime = flutter
-      ? (await _asyncNullishCoalesce$5(await _asyncNullishCoalesce$5((await resolveRuntime(ctx, 'flutter sdk (FVM)', (level) => [() => fvmRuntime(level)])), async () => (
+      ? (await _asyncNullishCoalesce$9(await _asyncNullishCoalesce$9((await resolveRuntime(ctx, 'flutter sdk (FVM)', (level) => [() => fvmRuntime(level)])), async () => (
         (await resolveRuntime(ctx, 'flutter sdk (pubspec)', (level) => [
           () => pubspecRuntime(level, levelPubspec(level), 'flutter', (v) => EXACT_VERSION.test(v)),
         ])))), async () => (
@@ -38497,22 +38511,253 @@ const dartDetector = {
     const tool = flutter ? 'flutter' : 'dart';
     return {
       language: 'dart',
-      name: _nullishCoalesce$7(str$2(pubspec['name']), () => ( '')),
-      version: _nullishCoalesce$7(_optionalChain$5([version, 'optionalAccess', _23 => _23.value]), () => ( '')),
-      versionSource: _nullishCoalesce$7(_optionalChain$5([version, 'optionalAccess', _24 => _24.source]), () => ( '')),
+      name: _nullishCoalesce$c(str$3(pubspec['name']), () => ( '')),
+      version: _nullishCoalesce$c(_optionalChain$b([version, 'optionalAccess', _23 => _23.value]), () => ( '')),
+      versionSource: _nullishCoalesce$c(_optionalChain$b([version, 'optionalAccess', _24 => _24.source]), () => ( '')),
       packageManager: tool,
       packageManagerVersion: '',
       ...runtimeFields(dir, runtime),
       manifest,
       lockfile,
-      workspaceRoot: relPosix(dir, _nullishCoalesce$7(_optionalChain$5([workspace, 'optionalAccess', _25 => _25.dir]), () => ( dir))),
+      workspaceRoot: relPosix(dir, _nullishCoalesce$c(_optionalChain$b([workspace, 'optionalAccess', _25 => _25.dir]), () => ( dir))),
       installCommand: lockfile ? `${tool} pub get --enforce-lockfile` : `${tool} pub get`,
       cacheDependencyPath: lockfile,
     }
   },
 };
 
-function _nullishCoalesce$6(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _optionalChain$a(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/** Narrow accessors for parsed TOML / JSON / YAML documents whose shape is not trusted. */
+
+ 
+
+function table$2(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value ) : undefined
+}
+
+function str$2(value) {
+  return typeof value === 'string' ? value : undefined
+}
+
+/** `get(doc, 'a', 'b')` → `doc.a.b`, or undefined when any step is missing or not a table. */
+function get$1(root, ...keys) {
+  let current = root;
+  for (const key of keys) {
+    current = _optionalChain$a([table$2, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
+    if (current === undefined) return undefined
+  }
+  return current
+}
+
+function _nullishCoalesce$b(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } function _optionalChain$9(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }/**
+ * Just enough XML for MSBuild project files and Maven POMs: both keep the values we need in simple
+ * `<Name>text</Name>` elements. Values that reference other properties (`$(...)`, `${...}`) are resolved
+ * by the callers or ignored.
+ */
+
+function stripXmlComments(xml) {
+  return xml.replace(/<!--[\s\S]*?-->/g, '')
+}
+
+/** Removes every `<name …>…</name>` block (and self-closing `<name/>`), e.g. `dependencies` or `build` in a POM. */
+function removeXmlBlocks(xml, names) {
+  let result = xml;
+  for (const name of names) {
+    result = result.replace(new RegExp(`<${name}(?:\\s[^>]*)?/>`, 'g'), '');
+    // Innermost first so nested blocks of the same name (rare) are removed completely.
+    const block = new RegExp(`<${name}(?:\\s[^>]*)?>(?:(?!<${name}[\\s>])[\\s\\S])*?</${name}\\s*>`, 'g');
+    let previous;
+    do {
+      previous = result;
+      result = result.replace(block, '');
+    } while (result !== previous)
+  }
+  return result
+}
+
+/** Text of the first `<name>` element, or undefined. Attributes are allowed. */
+function xmlText(xml, name) {
+  const match = new RegExp(`<${name}(?:\\s[^>]*)?>([^<]*)</${name}\\s*>`).exec(xml);
+  return _optionalChain$9([match, 'optionalAccess', _ => _[1], 'optionalAccess', _2 => _2.trim, 'call', _3 => _3()]) || undefined
+}
+
+/**
+ * MSBuild property value: the first `<name>` without a `Condition` attribute whose text does not refer
+ * to other properties (`$(...)`), so per-configuration overrides and computed values are skipped.
+ */
+function msbuildProperty(xml, name) {
+  for (const match of xml.matchAll(new RegExp(`<${name}(\\s[^>]*)?>([^<]*)</${name}\\s*>`, 'g'))) {
+    const attributes = _nullishCoalesce$b(match[1], () => ( ''));
+    const value = (_nullishCoalesce$b(match[2], () => ( ''))).trim();
+    if (/\bCondition\s*=/i.test(attributes) || !value || value.includes('$(')) continue
+    return value
+  }
+  return undefined
+}
+
+/** Child element texts of `<container>`, e.g. the `<module>` entries of `<modules>`. */
+function xmlList(xml, container, item) {
+  const block = _nullishCoalesce$b(_optionalChain$9([new RegExp(`<${container}(?:\\s[^>]*)?>([\\s\\S]*?)</${container}\\s*>`), 'access', _4 => _4.exec, 'call', _5 => _5(xml), 'optionalAccess', _6 => _6[1]]), () => ( ''));
+  return [...block.matchAll(new RegExp(`<${item}(?:\\s[^>]*)?>([^<]*)</${item}\\s*>`, 'g'))].map((m) => (_nullishCoalesce$b(m[1], () => ( ''))).trim()).filter(Boolean)
+}
+
+function _nullishCoalesce$a(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$8(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$8(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; } async function _asyncOptionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+const SOLUTION_EXTENSIONS = ['.sln', '.slnx'];
+const PROJECT_EXTENSIONS = ['.csproj', '.fsproj', '.vbproj'];
+
+
+
+
+
+
+
+async function readMsbuild(file) {
+  const text = await readText(file);
+  return text === undefined ? undefined : { file, xml: stripXmlComments(text) }
+}
+
+/**
+ * `source` followed by the local files it imports (`<Import Project="$(MSBuildThisFileDirectory)Version.props" />`,
+ * `<Import Project="..\eng\Versions.props" />`), one level deep and within the walk boundary. Imports that use
+ * any other MSBuild property are skipped.
+ */
+async function withImports(source, boundary) {
+  if (!source) return []
+  const dir = path$1.dirname(source.file);
+  const files = [source];
+  for (const [, raw] of source.xml.matchAll(/<Import\s[^>]*?\bProject\s*=\s*"([^"]+)"/g)) {
+    const relative = raw.replace(/\$\(MSBuildThisFileDirectory\)/g, '').replace(/\\/g, '/');
+    if (relative.includes('$(')) continue
+    const file = path$1.resolve(dir, relative);
+    if (!isInside(file, boundary)) continue
+    const imported = await readMsbuild(file);
+    if (imported) files.push(imported);
+  }
+  return files
+}
+
+/** `<Version>`, or `<VersionPrefix>` plus an optional `-<VersionSuffix>`, from the first file that declares one. */
+function msbuildVersion(dir, sources) {
+  for (const source of sources) {
+    const label = relPosix(dir, source.file);
+    const version = msbuildProperty(source.xml, 'Version');
+    if (version) return versionHit(version, `${label}:Version`)
+    const prefix = msbuildProperty(source.xml, 'VersionPrefix');
+    if (!prefix) continue
+    const suffix = msbuildProperty(source.xml, 'VersionSuffix');
+    return versionHit(suffix ? `${prefix}-${suffix}` : prefix, `${label}:VersionPrefix`)
+  }
+  return undefined
+}
+
+/**
+ * The .NET version a target framework needs: `net8.0` → `8.0`, `netcoreapp3.1` → `3.1`; the highest one of
+ * `<TargetFrameworks>`. .NET Framework (`net48`) and `netstandard` say nothing about the SDK and are skipped.
+ */
+function dotnetVersionFromTargetFrameworks(value) {
+  const versions = value
+    .split(';')
+    .map((tfm) => tfm.trim().toLowerCase())
+    .map((tfm) => _nullishCoalesce$a(_optionalChain$8([/^net(\d+\.\d+)(?:-.*)?$/, 'access', _ => _.exec, 'call', _2 => _2(tfm), 'optionalAccess', _3 => _3[1]]), () => ( _optionalChain$8([/^netcoreapp(\d+\.\d+)$/, 'access', _4 => _4.exec, 'call', _5 => _5(tfm), 'optionalAccess', _6 => _6[1]]))))
+    .filter((v) => !!v && (Number(v.split('.')[0]) >= 5 || /^[123]\./.test(v)));
+  return versions.sort((a, b) => {
+    const [am, an] = a.split('.').map(Number);
+    const [bm, bn] = b.split('.').map(Number);
+    return bm - am || bn - an
+  })[0]
+}
+
+function targetFrameworkRuntime(sources) {
+  for (const source of sources) {
+    for (const field of ['TargetFramework', 'TargetFrameworks']) {
+      const raw = msbuildProperty(source.xml, field);
+      const value = raw ? dotnetVersionFromTargetFrameworks(raw) : undefined;
+      if (value) return { value, file: source.file, field, setupReadable: false }
+    }
+  }
+  return undefined
+}
+
+/** `global.json` `sdk.version` — `dotnet` resolves it by walking up, setup-dotnet reads it via `global-json-file`. */
+async function globalJsonRuntime(dir) {
+  const file = path$1.join(dir, 'global.json');
+  const value = await _asyncOptionalChain$2([str$2, 'call', async _7 => _7(get$1(await readJson(file), 'sdk', 'version')), 'optionalAccess', async _8 => _8.trim, 'call', async _9 => _9()]);
+  return value ? { value, file, field: 'sdk.version', setupReadable: true } : undefined
+}
+
+/** Nerdbank.GitVersioning `version.json` (nearest up to the boundary): the declared version base. */
+async function nerdbankVersion(ctx) {
+  for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$a(ctx.boundary, () => ( ctx.dir)))]) {
+    const file = path$1.join(level, 'version.json');
+    const doc = table$2(await readJson(file));
+    if (!doc) continue
+    return versionHit(str$2(doc['version']), `${relPosix(ctx.dir, file)}:version`)
+  }
+  return undefined
+}
+
+const dotnetDetector = {
+  language: 'dotnet',
+  async detect(ctx) {
+    const { dir } = ctx;
+    const files = (await _asyncNullishCoalesce$8((await listDir(dir)), async () => ( []))).filter((e) => e.isFile()).map((e) => e.name).sort();
+    const solutions = files.filter((f) => SOLUTION_EXTENSIONS.includes(path$1.extname(f).toLowerCase()));
+    const projects = files.filter((f) => PROJECT_EXTENSIONS.includes(path$1.extname(f).toLowerCase()));
+    const manifest = _nullishCoalesce$a(solutions[0], () => ( projects[0]));
+    if (!manifest) return undefined
+
+    const boundary = _nullishCoalesce$a(ctx.boundary, () => ( dir));
+    const project = solutions.length ? undefined : await readMsbuild(path$1.join(dir, manifest));
+    // MSBuild imports the nearest Directory.Build.props above the project.
+    let props;
+    for (const level of [dir, ...ancestors(dir, boundary)]) {
+      props = await readMsbuild(path$1.join(level, 'Directory.Build.props'));
+      if (props) break
+    }
+    const projectFiles = await withImports(project, boundary);
+    const propsFiles = await withImports(props, boundary);
+
+    const stem = path$1.basename(manifest, path$1.extname(manifest));
+    const name = (project && (_nullishCoalesce$a(msbuildProperty(project.xml, 'PackageId'), () => ( msbuildProperty(project.xml, 'AssemblyName'))))) || stem;
+
+    const version = await resolveFirst(ctx, 'dotnet version', [
+      { name: `${manifest} Version/VersionPrefix`, read: () => msbuildVersion(dir, projectFiles) },
+      { name: 'Directory.Build.props Version/VersionPrefix (and its imports)', read: () => msbuildVersion(dir, propsFiles) },
+      { name: 'version.json (Nerdbank.GitVersioning)', read: () => nerdbankVersion(ctx) },
+      ...releaseToolSources(ctx),
+      gitTagSource(ctx),
+    ]);
+
+    const runtime =
+      await _asyncNullishCoalesce$8(await _asyncNullishCoalesce$8((await resolveRuntime(ctx, 'dotnet sdk (global.json)', (level) => [() => globalJsonRuntime(level)])), async () => (
+      (await resolveRuntime(ctx, 'dotnet target framework', (level) =>
+        level === dir ? [() => targetFrameworkRuntime(projectFiles), () => targetFrameworkRuntime(propsFiles)] : [],
+      )))), async () => (
+      (await resolveRuntime(ctx, 'dotnet runtime (asdf/mise)', (level) => [() => toolVersionsRuntime(level, 'dotnet'), () => miseRuntime(level, 'dotnet')]))));
+
+    const lockfile = (await isFile(path$1.join(dir, 'packages.lock.json'))) ? 'packages.lock.json' : '';
+    // `dotnet restore` needs the file when the directory holds more than one solution/project.
+    const ambiguous = solutions.length + projects.length > 1;
+    const restore = ambiguous ? (/\s/.test(manifest) ? '' : `dotnet restore ${manifest}`) : 'dotnet restore';
+    const installCommand = restore && lockfile ? `${restore} --locked-mode` : restore;
+
+    return {
+      language: 'dotnet',
+      name,
+      version: _nullishCoalesce$a(_optionalChain$8([version, 'optionalAccess', _10 => _10.value]), () => ( '')),
+      versionSource: _nullishCoalesce$a(_optionalChain$8([version, 'optionalAccess', _11 => _11.source]), () => ( '')),
+      packageManager: 'dotnet',
+      packageManagerVersion: '',
+      ...runtimeFields(dir, runtime),
+      manifest,
+      lockfile,
+      workspaceRoot: '.',
+      installCommand,
+      cacheDependencyPath: lockfile,
+    }
+  },
+};
+
+function _nullishCoalesce$9(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$7(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$7(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 /** Conventional locations of a `Version` constant, checked before falling back to a directory walk. */
 const VERSION_GO_CANDIDATES = [
   'version.go',
@@ -38534,9 +38779,9 @@ function parseGoMod(text) {
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/\/\/.*$/, '').trim();
     let match;
-    if ((match = /^module\s+("?)(\S+?)\1$/.exec(line))) result.module ||= _nullishCoalesce$6(match[2], () => ( ''));
-    else if ((match = /^go\s+(\S+)$/.exec(line))) result.go ||= _nullishCoalesce$6(match[1], () => ( ''));
-    else if ((match = /^toolchain\s+go(\S+)$/.exec(line))) result.toolchain ||= _nullishCoalesce$6(match[1], () => ( ''));
+    if ((match = /^module\s+("?)(\S+?)\1$/.exec(line))) result.module ||= _nullishCoalesce$9(match[2], () => ( ''));
+    else if ((match = /^go\s+(\S+)$/.exec(line))) result.go ||= _nullishCoalesce$9(match[1], () => ( ''));
+    else if ((match = /^toolchain\s+go(\S+)$/.exec(line))) result.toolchain ||= _nullishCoalesce$9(match[1], () => ( ''));
   }
   return result
 }
@@ -38571,10 +38816,10 @@ async function versionFromGoSource(dir) {
 
   // CLIs often keep the version next to main (fzf: `var version = "0.74"` in main.go). main.go holds
   // all kinds of strings, so only a package-level one-line `var|const version = "X.Y…"` counts there.
-  const mains = ['main.go', ...(await _asyncNullishCoalesce$4((await listDir(path$1.join(dir, 'cmd'))), async () => ( []))).filter((e) => e.isDirectory()).map((e) => `cmd/${e.name}/main.go`).sort()];
+  const mains = ['main.go', ...(await _asyncNullishCoalesce$7((await listDir(path$1.join(dir, 'cmd'))), async () => ( []))).filter((e) => e.isDirectory()).map((e) => `cmd/${e.name}/main.go`).sort()];
   for (const file of mains) {
     const source = await readText(path$1.join(dir, file));
-    const value = source ? cleanVersion(_optionalChain$4([MAIN_GO_VERSION, 'access', _ => _.exec, 'call', _2 => _2(source), 'optionalAccess', _3 => _3[1]])) : '';
+    const value = source ? cleanVersion(_optionalChain$7([MAIN_GO_VERSION, 'access', _ => _.exec, 'call', _2 => _2(source), 'optionalAccess', _3 => _3[1]])) : '';
     if (value && looksLikeReleaseVersion(value)) return { value, source: file }
   }
   return undefined
@@ -38601,11 +38846,11 @@ const goDetector = {
     if (!manifest) return undefined
 
     const isDep = manifest === 'Gopkg.toml';
-    const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod(await _asyncNullishCoalesce$4((await readText(path$1.join(dir, manifest))), async () => ( '')));
+    const goMod = isDep ? { module: '', go: '', toolchain: '' } : parseGoMod(await _asyncNullishCoalesce$7((await readText(path$1.join(dir, manifest))), async () => ( '')));
 
     const lockfile = isDep
       ? (await isFile(path$1.join(dir, 'Gopkg.lock'))) ? 'Gopkg.lock' : ''
-      : await _asyncNullishCoalesce$4((await firstExisting(dir, ['go.sum', 'go.work.sum'])), async () => ( ''));
+      : await _asyncNullishCoalesce$7((await firstExisting(dir, ['go.sum', 'go.work.sum'])), async () => ( ''));
 
     const version = await resolveFirst(ctx, 'go version', [
       versionFileSource(dir),
@@ -38628,8 +38873,8 @@ const goDetector = {
     return {
       language: 'go',
       name: goMod.module,
-      version: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _4 => _4.value]), () => ( '')),
-      versionSource: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _5 => _5.source]), () => ( '')),
+      version: _nullishCoalesce$9(_optionalChain$7([version, 'optionalAccess', _4 => _4.value]), () => ( '')),
+      versionSource: _nullishCoalesce$9(_optionalChain$7([version, 'optionalAccess', _5 => _5.source]), () => ( '')),
       packageManager: isDep ? 'dep' : 'go',
       packageManagerVersion: goMod.toolchain,
       ...runtimeFields(dir, runtime),
@@ -38643,7 +38888,343 @@ const goDetector = {
   },
 };
 
-function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$3(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$8(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$6(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$6(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; } async function _asyncOptionalChain$1(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+/** Java version as setup-java expects it: the old `1.8` notation becomes `8`. */
+function normalizeJavaVersion(value) {
+  return value.trim().replace(/^1\.(\d+)$/, '$1')
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Shared runtime sources (all three files are read by actions/setup-java's java-version-file)
+
+async function sdkmanrcRuntime(dir) {
+  const file = path$1.join(dir, '.sdkmanrc');
+  const match = /^\s*java\s*=\s*([^\s#]+)/m.exec(await _asyncNullishCoalesce$6((await readText(file)), async () => ( '')));
+  // `21.0.2-tem`: version, then the SDKMAN distribution identifier.
+  const value = _optionalChain$6([match, 'optionalAccess', _ => _[1], 'optionalAccess', _2 => _2.replace, 'call', _3 => _3(/-[a-z0-9]+$/i, '')]);
+  return value ? { value, file, field: 'java', setupReadable: true } : undefined
+}
+
+async function javaToolVersions(dir) {
+  const hit = await toolVersionsRuntime(dir, 'java');
+  // asdf-java names carry the vendor: `temurin-21.0.2+13.0.LTS` → `21.0.2+13.0.LTS`.
+  return hit ? { ...hit, value: hit.value.replace(/^(?:[a-z][a-z0-9.]*-)+(?=\d)/i, '') } : undefined
+}
+
+async function javaVersionFile(dir) {
+  const file = path$1.join(dir, '.java-version');
+  const value = await readVersionFile(file);
+  return value ? { value: normalizeJavaVersion(value), file, field: '', setupReadable: true } : undefined
+}
+
+function javaRuntimeChain(level, buildSources) {
+  return [() => javaVersionFile(level), () => sdkmanrcRuntime(level), ...buildSources, () => javaToolVersions(level), () => miseRuntime(level, 'java')]
+}
+
+/** Nearest `<root>/<relative>` file walking up from `dir` within the boundary (wrappers live in the build root). */
+async function nearestFile(ctx, relative) {
+  for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$8(ctx.boundary, () => ( ctx.dir)))]) {
+    const file = path$1.join(level, relative);
+    if (await isFile(file)) return file
+  }
+  return undefined
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Maven
+
+
+
+
+
+
+
+
+
+
+const NON_PROJECT_BLOCKS = [
+  'parent',
+  'dependencies',
+  'dependencyManagement',
+  'build',
+  'profiles',
+  'reporting',
+  'modules',
+  'properties',
+  'distributionManagement',
+  'repositories',
+  'pluginRepositories',
+  'developers',
+  'contributors',
+  'licenses',
+  'scm',
+  'issueManagement',
+  'ciManagement',
+  'mailingLists',
+  'organization',
+  'prerequisites',
+];
+
+async function readPom(dir) {
+  const text = await readText(path$1.join(dir, 'pom.xml'));
+  if (text === undefined) return undefined
+  const xml = stripXmlComments(text);
+  const top = removeXmlBlocks(xml, NON_PROJECT_BLOCKS);
+  const parent = _optionalChain$6([/<parent(?:\s[^>]*)?>([\s\S]*?)<\/parent\s*>/, 'access', _4 => _4.exec, 'call', _5 => _5(xml), 'optionalAccess', _6 => _6[1]]);
+  const withoutProfiles = removeXmlBlocks(xml, ['profiles', 'build', 'dependencies', 'dependencyManagement']);
+  const propertiesBlock = _nullishCoalesce$8(_optionalChain$6([/<properties(?:\s[^>]*)?>([\s\S]*?)<\/properties\s*>/, 'access', _7 => _7.exec, 'call', _8 => _8(withoutProfiles), 'optionalAccess', _9 => _9[1]]), () => ( ''));
+  const properties = {};
+  for (const [, key, value] of propertiesBlock.matchAll(/<([\w.-]+)(?:\s[^>]*)?>([^<]*)<\/\1\s*>/g)) properties[key] = value.trim();
+  return {
+    dir,
+    artifactId: xmlText(top, 'artifactId'),
+    version: xmlText(top, 'version'),
+    parentVersion: parent ? xmlText(parent, 'version') : undefined,
+    modules: xmlList(removeXmlBlocks(xml, ['profiles']), 'modules', 'module'),
+    properties,
+  }
+}
+
+/** `-Drevision=1.2.3` style properties from `.mvn/maven.config` (CI-friendly versions). */
+async function mavenConfigProperties(ctx) {
+  const file = await nearestFile(ctx, '.mvn/maven.config');
+  const properties = {};
+  // Empty values are common for releases: `-Drevision=1.2.0 -Dchangelist=`.
+  for (const [, key, value] of ((file && (await readText(file))) || '').matchAll(/-D([\w.-]+)=(\S*)/g)) properties[key] = value.replace(/^["']|["']$/g, '');
+  return properties
+}
+
+/** Replaces `${name}` references; undefined when any reference stays unresolved. */
+function interpolate(value, properties, depth = 0) {
+  if (!value) return undefined
+  const resolved = value.replace(/\$\{([\w.-]+)\}/g, (whole, key) => _nullishCoalesce$8(properties[key], () => ( whole)));
+  if (!resolved.includes('${')) return resolved
+  return depth < 5 && resolved !== value ? interpolate(resolved, properties, depth + 1) : undefined
+}
+
+/**
+ * The aggregator chain above `dir`: each step is the nearest parent pom.xml whose `<modules>` lists the
+ * previous directory, nearest first. The last element is the top-level build root.
+ */
+async function mavenAggregators(ctx) {
+  const chain = [];
+  let current = ctx.dir;
+  for (const level of ancestors(ctx.dir, _nullishCoalesce$8(ctx.boundary, () => ( ctx.dir)))) {
+    const pom = await readPom(level);
+    if (!pom) continue
+    const rel = relPosix(level, current);
+    if (pom.modules.some((m) => m.replace(/^\.\//, '').replace(/\/+$/, '').replace(/\/pom\.xml$/, '') === rel)) {
+      chain.push(pom);
+      current = level;
+    }
+  }
+  return chain
+}
+
+function mavenJavaRuntime(dir, pom, properties) {
+  if (!pom) return undefined
+  for (const key of ['maven.compiler.release', 'java.version', 'maven.compiler.target', 'maven.compiler.source']) {
+    const value = interpolate(pom.properties[key], properties);
+    if (value && /^\d/.test(value)) return { value: normalizeJavaVersion(value), file: path$1.join(dir, 'pom.xml'), field: `properties.${key}`, setupReadable: false }
+  }
+  return undefined
+}
+
+async function detectMaven(ctx, pom) {
+  const { dir } = ctx;
+  const chain = await mavenAggregators(ctx);
+  const root = chain.at(-1);
+  // Properties are inherited down the chain; the project's own win, .mvn/maven.config overrides all.
+  const properties = Object.assign({}, ...[...chain].reverse().map((p) => p.properties), pom.properties, await mavenConfigProperties(ctx)); 
+  const inRepoParent = chain.length > 0 || (await isFile(path$1.join(dir, '..', 'pom.xml')) && isInside(path$1.join(dir, '..'), _nullishCoalesce$8(ctx.boundary, () => ( dir))));
+
+  const version = await resolveFirst(ctx, 'java version', [
+    { name: 'pom.xml:version', read: () => versionHit(interpolate(pom.version, properties), 'pom.xml:version') },
+    // Without its own <version> a module inherits its parent's — only meaningful for a parent in this repository.
+    { name: 'pom.xml:parent.version', read: () => (inRepoParent ? versionHit(interpolate(pom.parentVersion, properties), 'pom.xml:parent.version') : undefined) },
+    ...releaseToolSources(ctx),
+    gitTagSource(ctx),
+  ]);
+
+  const wrapper = await nearestFile(ctx, '.mvn/wrapper/maven-wrapper.properties');
+  const mavenVersion = wrapper ? await _asyncOptionalChain$1([/apache-maven-(\d[\w.-]*?)-bin\.(?:zip|tar\.gz)/, 'access', async _10 => _10.exec, 'call', async _11 => _11(await _asyncNullishCoalesce$6((await readText(wrapper)), async () => ( ''))), 'optionalAccess', async _12 => _12[1]]) : undefined;
+
+  const runtime = await resolveRuntime(ctx, 'java runtime (maven)', (level) =>
+    javaRuntimeChain(level, level === dir ? [() => mavenJavaRuntime(dir, pom, properties)] : [() => mavenJavaRuntime(level, chain.find((p) => p.dir === level), properties)]),
+  );
+
+  const installRoot = _nullishCoalesce$8(_optionalChain$6([root, 'optionalAccess', _13 => _13.dir]), () => ( dir));
+  // dependency:go-offline cannot resolve sibling modules of a reactor build that were never installed,
+  // so multi-module builds get no install command.
+  const multiModule = !!root || pom.modules.length > 0;
+  const mvn = (await isFile(path$1.join(installRoot, 'mvnw'))) ? './mvnw' : 'mvn';
+
+  return {
+    language: 'java',
+    name: _nullishCoalesce$8(pom.artifactId, () => ( '')),
+    version: _nullishCoalesce$8(_optionalChain$6([version, 'optionalAccess', _14 => _14.value]), () => ( '')),
+    versionSource: _nullishCoalesce$8(_optionalChain$6([version, 'optionalAccess', _15 => _15.source]), () => ( '')),
+    packageManager: 'maven',
+    packageManagerVersion: _nullishCoalesce$8(mavenVersion, () => ( '')),
+    ...runtimeFields(dir, runtime),
+    manifest: 'pom.xml',
+    lockfile: '',
+    workspaceRoot: relPosix(dir, installRoot),
+    installCommand: multiModule ? '' : `${mvn} -B dependency:go-offline`,
+    cacheDependencyPath: '',
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Gradle
+
+const BUILD_FILES = ['build.gradle.kts', 'build.gradle'];
+const SETTINGS_FILES = ['settings.gradle.kts', 'settings.gradle'];
+
+/** Project paths of `include(...)` / `include ':a', ':b'` in a settings file: `:core:data` → `core/data`. */
+function parseGradleIncludes(settings) {
+  const text = settings.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const result = [];
+  for (const match of text.matchAll(/\binclude\s*\(([^)]*)\)|\binclude\s+((?:["'][^"'\n]+["']\s*,?\s*)+)/g)) {
+    for (const [, item] of (_nullishCoalesce$8(_nullishCoalesce$8(match[1], () => ( match[2])), () => ( ''))).matchAll(/["']([^"']+)["']/g)) {
+      result.push(item.replace(/^:/, '').replace(/:/g, '/'));
+    }
+  }
+  return result
+}
+
+
+
+
+
+
+/** The Gradle build root: this directory when it has a settings file, else the nearest parent whose settings include it. */
+async function findGradleRoot(ctx) {
+  for (const level of [ctx.dir, ...ancestors(ctx.dir, _nullishCoalesce$8(ctx.boundary, () => ( ctx.dir)))]) {
+    const file = await firstExisting(level, SETTINGS_FILES);
+    if (!file) continue
+    const settings = await _asyncNullishCoalesce$6((await readText(path$1.join(level, file))), async () => ( ''));
+    if (level === ctx.dir || parseGradleIncludes(settings).includes(relPosix(level, ctx.dir))) return { dir: level, settings }
+  }
+  return undefined
+}
+
+function propertiesVersion(text) {
+  return text ? _optionalChain$6([/^\s*version\s*[=:]\s*(\S.*?)\s*$/m, 'access', _16 => _16.exec, 'call', _17 => _17(text), 'optionalAccess', _18 => _18[1]]) : undefined
+}
+
+/** `version = "1.2.3"` (Kotlin DSL) or `version '1.2.3'` / `version = '1.2.3'` (Groovy) as the first token on a line. */
+function buildFileVersion(text) {
+  return text ? _optionalChain$6([/^\s*version\s*(?:=\s*)?["']([^"'\n]+)["']/m, 'access', _19 => _19.exec, 'call', _20 => _20(text), 'optionalAccess', _21 => _21[1]]) : undefined
+}
+
+/** Android `versionName "1.2.3"` + `versionCode 27` → `1.2.3+27` (the same shape as a Flutter version). */
+function androidVersion(text) {
+  const name = text ? _optionalChain$6([/\bversionName\s*(?:=\s*)?["']([^"'\n]+)["']/, 'access', _22 => _22.exec, 'call', _23 => _23(text), 'optionalAccess', _24 => _24[1]]) : undefined;
+  if (!name) return undefined
+  const code = _optionalChain$6([/\bversionCode\s*(?:=\s*)?(\d+)\b/, 'access', _25 => _25.exec, 'call', _26 => _26(text), 'optionalAccess', _27 => _27[1]]);
+  return code ? `${name}+${code}` : name
+}
+
+function gradleJavaRuntime(file, text) {
+  if (!text) return undefined
+  const patterns = [
+    [/JavaLanguageVersion\.of\(\s*"?(\d+)"?\s*\)/, 'toolchain'],
+    [/\bjvmToolchain\(\s*(\d+)\s*\)/, 'jvmToolchain'],
+    [/\bsourceCompatibility\s*=?\s*JavaVersion\.VERSION_(\d+(?:_\d+)?)/, 'sourceCompatibility'],
+    [/\bsourceCompatibility\s*=\s*["']?(\d+(?:\.\d+)?)["']?/, 'sourceCompatibility'],
+  ];
+  for (const [pattern, field] of patterns) {
+    const raw = _optionalChain$6([pattern, 'access', _28 => _28.exec, 'call', _29 => _29(text), 'optionalAccess', _30 => _30[1]]);
+    if (raw) return { value: normalizeJavaVersion(raw.replace(/_/g, '.')), file, field, setupReadable: false }
+  }
+  return undefined
+}
+
+async function detectGradle(ctx) {
+  const { dir } = ctx;
+  const buildFile = await firstExisting(dir, BUILD_FILES);
+  const settingsFile = await firstExisting(dir, SETTINGS_FILES);
+  const build = buildFile ? await readText(path$1.join(dir, buildFile)) : undefined;
+  const root = await findGradleRoot(ctx);
+  const rootDir = _nullishCoalesce$8(_optionalChain$6([root, 'optionalAccess', _31 => _31.dir]), () => ( dir));
+  const rootBuildFile = rootDir === dir ? undefined : await firstExisting(rootDir, BUILD_FILES);
+  const rootBuild = rootBuildFile ? await readText(path$1.join(rootDir, rootBuildFile)) : undefined;
+  const rootLabel = (file) => relPosix(dir, path$1.join(rootDir, file));
+
+  const rootName = _optionalChain$6([root, 'optionalAccess', _32 => _32.dir]) === dir ? _optionalChain$6([/rootProject\.name\s*=\s*["']([^"']+)["']/, 'access', _33 => _33.exec, 'call', _34 => _34(root.settings), 'optionalAccess', _35 => _35[1]]) : undefined;
+  const name = _nullishCoalesce$8(rootName, () => ( path$1.basename(dir)));
+
+  const sources = [
+    { name: 'gradle.properties:version', read: async () => versionHit(propertiesVersion(await readText(path$1.join(dir, 'gradle.properties'))), 'gradle.properties:version') },
+    { name: `${_nullishCoalesce$8(buildFile, () => ( 'build file'))}:version`, read: () => (buildFile ? versionHit(buildFileVersion(build), `${buildFile}:version`) : undefined) },
+    { name: `${_nullishCoalesce$8(buildFile, () => ( 'build file'))}:versionName`, read: () => (buildFile ? versionHit(androidVersion(build), `${buildFile}:versionName`) : undefined) },
+  ];
+  if (rootDir !== dir) {
+    sources.push(
+      {
+        name: 'root gradle.properties:version',
+        read: async () => versionHit(propertiesVersion(await readText(path$1.join(rootDir, 'gradle.properties'))), `${rootLabel('gradle.properties')}:version`),
+      },
+      { name: 'root build file version', read: () => (rootBuildFile ? versionHit(buildFileVersion(rootBuild), `${rootLabel(rootBuildFile)}:version`) : undefined) },
+    );
+  }
+  const version = await resolveFirst(ctx, 'java version', [...sources, ...releaseToolSources(ctx), gitTagSource(ctx)]);
+
+  const wrapper = await nearestFile(ctx, 'gradle/wrapper/gradle-wrapper.properties');
+  const gradleVersion = wrapper ? await _asyncOptionalChain$1([/gradle-(\d[\w.-]*?)-(?:bin|all)\.zip/, 'access', async _36 => _36.exec, 'call', async _37 => _37(await _asyncNullishCoalesce$6((await readText(wrapper)), async () => ( ''))), 'optionalAccess', async _38 => _38[1]]) : undefined;
+
+  const runtime = await resolveRuntime(ctx, 'java runtime (gradle)', (level) =>
+    javaRuntimeChain(
+      level,
+      level === dir
+        ? [() => (buildFile ? gradleJavaRuntime(path$1.join(dir, buildFile), build) : undefined)]
+        : level === rootDir && rootBuildFile
+          ? [() => gradleJavaRuntime(path$1.join(rootDir, rootBuildFile), rootBuild)]
+          : [],
+    ),
+  );
+
+  const lockfilePath = [path$1.join(dir, 'gradle.lockfile'), path$1.join(rootDir, 'gradle.lockfile')];
+  let lockfile = '';
+  for (const file of lockfilePath) {
+    if (await isFile(file)) {
+      lockfile = relPosix(dir, file);
+      break
+    }
+  }
+
+  return {
+    language: 'java',
+    name,
+    version: _nullishCoalesce$8(_optionalChain$6([version, 'optionalAccess', _39 => _39.value]), () => ( '')),
+    versionSource: _nullishCoalesce$8(_optionalChain$6([version, 'optionalAccess', _40 => _40.source]), () => ( '')),
+    packageManager: 'gradle',
+    packageManagerVersion: _nullishCoalesce$8(gradleVersion, () => ( '')),
+    ...runtimeFields(dir, runtime),
+    manifest: _nullishCoalesce$8(buildFile, () => ( settingsFile)),
+    lockfile,
+    workspaceRoot: relPosix(dir, rootDir),
+    // Gradle resolves dependencies as part of the build; there is no separate, reliable install step.
+    installCommand: '',
+    cacheDependencyPath: '',
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------
+
+/** JVM builds (Java, Kotlin, Groovy, Scala on Maven or Gradle). A directory with both is reported as Maven. */
+const javaDetector = {
+  language: 'java',
+  async detect(ctx) {
+    const pom = await readPom(ctx.dir);
+    if (pom) return detectMaven(ctx, pom)
+    if (await firstExisting(ctx.dir, [...BUILD_FILES, ...SETTINGS_FILES])) return detectGradle(ctx)
+    return undefined
+  },
+};
+
+function _nullishCoalesce$7(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$5(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
 
 
@@ -38657,7 +39238,7 @@ function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else 
 
 
 /** Lockfiles in priority order — the first one found wins. */
-const LOCKFILES$1 = [
+const LOCKFILES$2 = [
   { file: 'bun.lock', pm: 'bun' },
   { file: 'bun.lockb', pm: 'bun' },
   { file: 'pnpm-lock.yaml', pm: 'pnpm' },
@@ -38665,7 +39246,7 @@ const LOCKFILES$1 = [
   { file: 'package-lock.json', pm: 'npm' },
   { file: 'npm-shrinkwrap.json', pm: 'npm' },
 ];
-const LOCKFILE_NAMES = LOCKFILES$1.map((l) => l.file);
+const LOCKFILE_NAMES = LOCKFILES$2.map((l) => l.file);
 
 const NODE_PMS = ['npm', 'yarn', 'pnpm', 'bun'];
 
@@ -38674,7 +39255,7 @@ function isNodePm(value) {
 }
 
 function lockfilePm(file) {
-  return file ? _optionalChain$3([LOCKFILES$1, 'access', _ => _.find, 'call', _2 => _2((l) => l.file === path$1.basename(file)), 'optionalAccess', _3 => _3.pm]) : undefined
+  return file ? _optionalChain$5([LOCKFILES$2, 'access', _ => _.find, 'call', _2 => _2((l) => l.file === path$1.basename(file)), 'optionalAccess', _3 => _3.pm]) : undefined
 }
 
 /** Parses the `packageManager` field (`pnpm@9.1.0+sha512...`) into name and version. */
@@ -38699,7 +39280,7 @@ function declaredPackageManager(pkg) {
   if (!pkg) return undefined
   const explicit = parsePackageManagerField(pkg.packageManager);
   if (explicit) return explicit
-  for (const { name, version } of devEngineEntries(_optionalChain$3([pkg, 'access', _4 => _4.devEngines, 'optionalAccess', _5 => _5.packageManager]))) {
+  for (const { name, version } of devEngineEntries(_optionalChain$5([pkg, 'access', _4 => _4.devEngines, 'optionalAccess', _5 => _5.packageManager]))) {
     if (typeof name === 'string' && isNodePm(name)) return { pm: name, version: typeof version === 'string' ? version.trim() : '' }
   }
   return undefined
@@ -38707,8 +39288,8 @@ function declaredPackageManager(pkg) {
 
 /** A package manager named in `volta` or `engines` (e.g. `engines.pnpm`). */
 function packageManagerNamedIn(pkg) {
-  for (const source of [_optionalChain$3([pkg, 'optionalAccess', _6 => _6.volta]), _optionalChain$3([pkg, 'optionalAccess', _7 => _7.engines])]) {
-    const hit = NODE_PMS.find((pm) => typeof _optionalChain$3([source, 'optionalAccess', _8 => _8[pm]]) === 'string');
+  for (const source of [_optionalChain$5([pkg, 'optionalAccess', _6 => _6.volta]), _optionalChain$5([pkg, 'optionalAccess', _7 => _7.engines])]) {
+    const hit = NODE_PMS.find((pm) => typeof _optionalChain$5([source, 'optionalAccess', _8 => _8[pm]]) === 'string');
     if (hit) return hit
   }
   return undefined
@@ -38719,7 +39300,7 @@ async function yarnVersionFromRc(dir) {
   const rc = await readText(path$1.join(dir, '.yarnrc.yml'));
   if (!rc) return undefined
   const match = /^\s*yarnPath:\s*["']?.*yarn-(\d+\.\d+\.\d+[^"'\s/]*)\.c?js["']?\s*$/m.exec(rc);
-  return _optionalChain$3([match, 'optionalAccess', _9 => _9[1]])
+  return _optionalChain$5([match, 'optionalAccess', _9 => _9[1]])
 }
 
 /**
@@ -38728,12 +39309,12 @@ async function yarnVersionFromRc(dir) {
  * writes 9.0); a Yarn v1 lockfile → Yarn 1, a Yarn Berry lockfile (`__metadata`) → Yarn 2 or later.
  */
 async function versionFromLockfileFormat(pm, lockfile) {
-  const text = await _asyncNullishCoalesce$3((await readText(lockfile)), async () => ( ''));
+  const text = await _asyncNullishCoalesce$5((await readText(lockfile)), async () => ( ''));
   if (pm === 'pnpm') {
     const match = /^lockfileVersion:\s*['"]?(\d+)(?:\.(\d+))?/m.exec(text);
     if (!match) return ''
     const major = Number(match[1]);
-    const minor = Number(_nullishCoalesce$5(match[2], () => ( 0)));
+    const minor = Number(_nullishCoalesce$7(match[2], () => ( 0)));
     if (major === 9) return '>=9'
     if (major === 6) return '8'
     if (major === 5 && minor === 4) return '7'
@@ -38749,10 +39330,10 @@ async function versionFromLockfileFormat(pm, lockfile) {
 
 /** Yarn 2+ ("Berry") vs Yarn 1 ("Classic"): they need different frozen-install flags. */
 async function isYarnBerry(root, version, lockfile) {
-  const major = _optionalChain$3([/(\d+)/, 'access', _10 => _10.exec, 'call', _11 => _11(version), 'optionalAccess', _12 => _12[1]]);
+  const major = _optionalChain$5([/(\d+)/, 'access', _10 => _10.exec, 'call', _11 => _11(version), 'optionalAccess', _12 => _12[1]]);
   if (major) return Number(major) >= 2
   if (await isFile(path$1.join(root, '.yarnrc.yml'))) return true
-  if (lockfile && path$1.basename(lockfile) === 'yarn.lock') return /^__metadata:/m.test(await _asyncNullishCoalesce$3((await readText(lockfile)), async () => ( '')))
+  if (lockfile && path$1.basename(lockfile) === 'yarn.lock') return /^__metadata:/m.test(await _asyncNullishCoalesce$5((await readText(lockfile)), async () => ( '')))
   return false
 }
 
@@ -38774,19 +39355,19 @@ function installCommand$1(pm, frozen, yarnBerry) {
 function packageJsonRuntime(dir, pkg) {
   if (!pkg) return undefined
   const file = path$1.join(dir, 'package.json');
-  const volta = _optionalChain$3([pkg, 'access', _13 => _13.volta, 'optionalAccess', _14 => _14['node']]);
+  const volta = _optionalChain$5([pkg, 'access', _13 => _13.volta, 'optionalAccess', _14 => _14['node']]);
   if (typeof volta === 'string' && volta.trim()) return { value: cleanVersion(volta), file, field: 'volta.node', setupReadable: true }
-  const runtime = devEngineEntries(_optionalChain$3([pkg, 'access', _15 => _15.devEngines, 'optionalAccess', _16 => _16.runtime])).find(
+  const runtime = devEngineEntries(_optionalChain$5([pkg, 'access', _15 => _15.devEngines, 'optionalAccess', _16 => _16.runtime])).find(
     (e) => typeof e.name === 'string' && e.name.toLowerCase() === 'node' && typeof e.version === 'string' && e.version.trim(),
   );
   if (runtime) return { value: (runtime.version ).trim(), file, field: 'devEngines.runtime', setupReadable: true }
-  const engines = _optionalChain$3([pkg, 'access', _17 => _17.engines, 'optionalAccess', _18 => _18['node']]);
+  const engines = _optionalChain$5([pkg, 'access', _17 => _17.engines, 'optionalAccess', _18 => _18['node']]);
   if (typeof engines === 'string' && engines.trim()) return { value: engines.trim(), file, field: 'engines.node', setupReadable: true }
   return undefined
 }
 
 function workspacePatterns(pkg) {
-  const ws = _optionalChain$3([pkg, 'optionalAccess', _19 => _19.workspaces]);
+  const ws = _optionalChain$5([pkg, 'optionalAccess', _19 => _19.workspaces]);
   const list = Array.isArray(ws) ? ws : ws && typeof ws === 'object' ? (ws ).packages : undefined;
   return Array.isArray(list) ? list.filter((p) => typeof p === 'string') : []
 }
@@ -38803,7 +39384,7 @@ function workspacePatterns(pkg) {
  * or `package.json#workspaces` (npm, Yarn, Bun) — includes `dir` as a member.
  */
 async function findWorkspace({ dir, boundary }) {
-  for (const level of ancestors(dir, _nullishCoalesce$5(boundary, () => ( dir)))) {
+  for (const level of ancestors(dir, _nullishCoalesce$7(boundary, () => ( dir)))) {
     const rel = relPosix(level, dir);
     const pkg = await readJson(path$1.join(level, 'package.json'));
     const pnpmWorkspace = await readText(path$1.join(level, 'pnpm-workspace.yaml'));
@@ -38821,9 +39402,9 @@ const nodeDetector = {
     const { dir } = ctx;
     const manifest = 'package.json';
     if (!(await isFile(path$1.join(dir, manifest)))) return undefined
-    const pkg = await _asyncNullishCoalesce$3((await readJson(path$1.join(dir, manifest))), async () => ( {}));
+    const pkg = await _asyncNullishCoalesce$5((await readJson(path$1.join(dir, manifest))), async () => ( {}));
     const workspace = await findWorkspace(ctx);
-    const rootPkg = _optionalChain$3([workspace, 'optionalAccess', _20 => _20.pkg]);
+    const rootPkg = _optionalChain$5([workspace, 'optionalAccess', _20 => _20.pkg]);
 
     // Lockfile: the project's own, otherwise the workspace root's (members share the root lockfile).
     const ownLock = await firstExisting(dir, LOCKFILE_NAMES);
@@ -38839,30 +39420,30 @@ const nodeDetector = {
     if (!packageManager && workspace) {
       const rootDeclared = declaredPackageManager(rootPkg);
       if (rootDeclared) ({ pm: packageManager, version: packageManagerVersion } = rootDeclared);
-      else packageManager = _nullishCoalesce$5(lockfilePm(rootLock), () => ( (workspace.pnpm ? 'pnpm' : undefined)));
+      else packageManager = _nullishCoalesce$7(lockfilePm(rootLock), () => ( (workspace.pnpm ? 'pnpm' : undefined)));
     }
-    packageManager ??= _nullishCoalesce$5(_nullishCoalesce$5(packageManagerNamedIn(pkg), () => ( packageManagerNamedIn(rootPkg))), () => ( 'npm'));
+    packageManager ??= _nullishCoalesce$7(_nullishCoalesce$7(packageManagerNamedIn(pkg), () => ( packageManagerNamedIn(rootPkg))), () => ( 'npm'));
 
     // Fill in the package manager version from secondary sources when it is still unknown.
     if (!packageManagerVersion) {
       const pm = packageManager;
-      const volta = [pkg, rootPkg].map((p) => _optionalChain$3([p, 'optionalAccess', _21 => _21.volta, 'optionalAccess', _22 => _22[pm]])).find((v) => typeof v === 'string');
+      const volta = [pkg, rootPkg].map((p) => _optionalChain$5([p, 'optionalAccess', _21 => _21.volta, 'optionalAccess', _22 => _22[pm]])).find((v) => typeof v === 'string');
       if (volta) packageManagerVersion = cleanVersion(volta);
-      else if (pm === 'yarn') packageManagerVersion = await _asyncNullishCoalesce$3(await _asyncNullishCoalesce$3((await yarnVersionFromRc(dir)), async () => ( (workspace ? await yarnVersionFromRc(workspace.dir) : undefined))), async () => ( ''));
-      const engines = [pkg, rootPkg].map((p) => _optionalChain$3([p, 'optionalAccess', _23 => _23.engines, 'optionalAccess', _24 => _24[pm]])).find((v) => typeof v === 'string');
+      else if (pm === 'yarn') packageManagerVersion = await _asyncNullishCoalesce$5(await _asyncNullishCoalesce$5((await yarnVersionFromRc(dir)), async () => ( (workspace ? await yarnVersionFromRc(workspace.dir) : undefined))), async () => ( ''));
+      const engines = [pkg, rootPkg].map((p) => _optionalChain$5([p, 'optionalAccess', _23 => _23.engines, 'optionalAccess', _24 => _24[pm]])).find((v) => typeof v === 'string');
       if (!packageManagerVersion && engines) packageManagerVersion = engines.trim();
       if (!packageManagerVersion && lockfilePath && lockfilePm(lockfilePath) === pm) {
         packageManagerVersion = await versionFromLockfileFormat(pm, lockfilePath);
       }
     }
 
-    const installRoot = _nullishCoalesce$5(_optionalChain$3([workspace, 'optionalAccess', _25 => _25.dir]), () => ( dir));
+    const installRoot = _nullishCoalesce$7(_optionalChain$5([workspace, 'optionalAccess', _25 => _25.dir]), () => ( dir));
     const frozen = lockfilePm(lockfilePath) === packageManager;
     const yarnBerry = packageManager === 'yarn' && (await isYarnBerry(installRoot, packageManagerVersion, lockfilePath));
 
     const runtime = await resolveRuntime(ctx, 'node runtime', (level) => [
       () => versionFileRuntime(level, ['.nvmrc', '.node-version']),
-      () => packageJsonRuntime(level, level === dir ? pkg : level === _optionalChain$3([workspace, 'optionalAccess', _26 => _26.dir]) ? rootPkg : undefined),
+      () => packageJsonRuntime(level, level === dir ? pkg : level === _optionalChain$5([workspace, 'optionalAccess', _26 => _26.dir]) ? rootPkg : undefined),
       () => toolVersionsRuntime(level, 'node'),
       () => miseRuntime(level, 'node'),
     ]);
@@ -38876,8 +39457,8 @@ const nodeDetector = {
     return {
       language: 'node',
       name: typeof pkg.name === 'string' ? pkg.name : '',
-      version: _nullishCoalesce$5(_optionalChain$3([version, 'optionalAccess', _27 => _27.value]), () => ( '')),
-      versionSource: _nullishCoalesce$5(_optionalChain$3([version, 'optionalAccess', _28 => _28.source]), () => ( '')),
+      version: _nullishCoalesce$7(_optionalChain$5([version, 'optionalAccess', _27 => _27.value]), () => ( '')),
+      versionSource: _nullishCoalesce$7(_optionalChain$5([version, 'optionalAccess', _28 => _28.source]), () => ( '')),
       packageManager,
       packageManagerVersion,
       ...runtimeFields(dir, runtime),
@@ -38890,7 +39471,65 @@ const nodeDetector = {
   },
 };
 
-function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function _nullishCoalesce$6(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$4(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+function composerRuntime(file, doc, keys) {
+  const value = _optionalChain$4([str$2, 'call', _ => _(get$1(doc, ...keys)), 'optionalAccess', _2 => _2.trim, 'call', _3 => _3()]);
+  return value ? { value, file, field: keys.join('.'), setupReadable: false } : undefined
+}
+
+const phpDetector = {
+  language: 'php',
+  async detect(ctx) {
+    const { dir } = ctx;
+    const manifest = 'composer.json';
+    const manifestPath = path$1.join(dir, manifest);
+    if (!(await isFile(manifestPath))) return undefined
+    const composer = await _asyncNullishCoalesce$4(table$2(await readJson(manifestPath)), async () => ( {}));
+    const lockPath = path$1.join(dir, 'composer.lock');
+    const lockfile = (await isFile(lockPath)) ? 'composer.lock' : '';
+    const lock = lockfile ? await readJson(lockPath) : undefined;
+
+    // Packagist versions packages by their git tags; an explicit `version` field is rare.
+    const version = await resolveFirst(ctx, 'php version', [
+      { name: 'composer.json:version', read: () => versionHit(str$2(composer['version']), 'composer.json:version') },
+      ...releaseToolSources(ctx),
+      gitTagSource(ctx),
+    ]);
+
+    // Same order as shivammathur/setup-php: .php-version, then composer.lock platform-overrides and
+    // composer.json config.platform (both read by setup-php itself when no version is given), then the
+    // `require.php` constraint and asdf/mise.
+    const runtime = await resolveRuntime(ctx, 'php runtime', (level) => [
+      () => versionFileRuntime(level, ['.php-version']),
+      ...(level === dir
+        ? [
+            () => composerRuntime(lockPath, lock, ['platform-overrides', 'php']),
+            () => composerRuntime(manifestPath, composer, ['config', 'platform', 'php']),
+            () => composerRuntime(manifestPath, composer, ['require', 'php']),
+          ]
+        : []),
+      () => toolVersionsRuntime(level, 'php'),
+      () => miseRuntime(level, 'php'),
+    ]);
+
+    return {
+      language: 'php',
+      name: _nullishCoalesce$6(str$2(composer['name']), () => ( '')),
+      version: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _4 => _4.value]), () => ( '')),
+      versionSource: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _5 => _5.source]), () => ( '')),
+      packageManager: 'composer',
+      packageManagerVersion: '',
+      ...runtimeFields(dir, runtime),
+      manifest,
+      lockfile,
+      workspaceRoot: '.',
+      installCommand: 'composer install --no-interaction',
+      cacheDependencyPath: lockfile,
+    }
+  },
+};
+
+function _nullishCoalesce$5(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$3(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$3(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
 
 
 
@@ -38898,7 +39537,7 @@ function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else 
 const MANIFESTS = ['pyproject.toml', 'setup.cfg', 'setup.py', 'Pipfile', 'requirements.txt']; 
 
 /** Lockfiles in priority order — the first one found wins. `pylock.toml` (PEP 751) is tool-agnostic. */
-const LOCKFILES = [
+const LOCKFILES$1 = [
   { file: 'uv.lock', pm: 'uv' },
   { file: 'poetry.lock', pm: 'poetry' },
   { file: 'pdm.lock', pm: 'pdm' },
@@ -38955,7 +39594,7 @@ function strings$1(value) {
 function get(root, ...keys) {
   let current = root;
   for (const key of keys) {
-    current = _optionalChain$2([table$1, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
+    current = _optionalChain$3([table$1, 'call', _ => _(current), 'optionalAccess', _2 => _2[key]]);
     if (current === undefined) return undefined
   }
   return current
@@ -38992,8 +39631,8 @@ async function versionFromAttr(dir, attr, pyproject) {
   if (!identifier || parts.length === 0) return undefined
   const modulePath = parts.join('/');
   const roots = ['', 'src'];
-  const packageDir = table$1(get(_optionalChain$2([pyproject, 'optionalAccess', _3 => _3.tool]), 'setuptools', 'package-dir'));
-  const mappedRoot = str$1(_optionalChain$2([packageDir, 'optionalAccess', _4 => _4['']]));
+  const packageDir = table$1(get(_optionalChain$3([pyproject, 'optionalAccess', _3 => _3.tool]), 'setuptools', 'package-dir'));
+  const mappedRoot = str$1(_optionalChain$3([packageDir, 'optionalAccess', _4 => _4['']]));
   if (mappedRoot) roots.unshift(mappedRoot);
   for (const root of roots) {
     for (const candidate of [`${modulePath}.py`, `${modulePath}/__init__.py`]) {
@@ -39072,7 +39711,7 @@ function usesScmVersioning(pyproject) {
   if (get(tool, 'poetry-dynamic-versioning') !== undefined) return true
   if (str$1(get(tool, 'hatch', 'version', 'source')) === 'vcs') return true
   if (str$1(get(tool, 'pdm', 'version', 'source')) === 'scm') return true
-  const requires = _optionalChain$2([pyproject, 'access', _5 => _5.buildSystem, 'optionalAccess', _6 => _6['requires']]);
+  const requires = _optionalChain$3([pyproject, 'access', _5 => _5.buildSystem, 'optionalAccess', _6 => _6['requires']]);
   if (Array.isArray(requires)) {
     return requires.some((r) => typeof r === 'string' && /^(setuptools[-_]scm|hatch-vcs|versioningit)\b/i.test(r))
   }
@@ -39083,7 +39722,7 @@ function usesScmVersioning(pyproject) {
 async function topLevelPackages(dir) {
   const found = [];
   for (const root of ['src', '']) {
-    for (const entry of await _asyncNullishCoalesce$2((await listDir(path$1.join(dir, root))), async () => ( []))) {
+    for (const entry of await _asyncNullishCoalesce$3((await listDir(path$1.join(dir, root))), async () => ( []))) {
       if (!entry.isDirectory() || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name)) continue
       if (NON_PROJECT_DIRS.has(entry.name.toLowerCase())) continue
       if (await isFile(path$1.join(dir, root, entry.name, '__init__.py'))) found.push(root ? `${root}/${entry.name}` : entry.name);
@@ -39117,9 +39756,9 @@ async function scanForDunderVersion(dir, projectName) {
 }
 
 async function findLockfile(dir) {
-  const fixed = await firstExisting(dir, LOCKFILES.map((l) => l.file));
+  const fixed = await firstExisting(dir, LOCKFILES$1.map((l) => l.file));
   if (fixed) return fixed
-  const named = (await _asyncNullishCoalesce$2((await listDir(dir)), async () => ( []))).filter((e) => e.isFile() && NAMED_PYLOCK.test(e.name)).map((e) => e.name);
+  const named = (await _asyncNullishCoalesce$3((await listDir(dir)), async () => ( []))).filter((e) => e.isFile() && NAMED_PYLOCK.test(e.name)).map((e) => e.name);
   return named.sort()[0]
 }
 
@@ -39130,9 +39769,9 @@ async function findLockfile(dir) {
 
 /** Nearest parent directory whose `[tool.uv.workspace]` lists `dir` in `members` (and not in `exclude`). */
 async function findUvWorkspace({ dir, boundary }) {
-  for (const level of ancestors(dir, _nullishCoalesce$4(boundary, () => ( dir)))) {
+  for (const level of ancestors(dir, _nullishCoalesce$5(boundary, () => ( dir)))) {
     const pyproject = await readPyproject(level);
-    const workspace = table$1(get(_optionalChain$2([pyproject, 'optionalAccess', _7 => _7.tool]), 'uv', 'workspace'));
+    const workspace = table$1(get(_optionalChain$3([pyproject, 'optionalAccess', _7 => _7.tool]), 'uv', 'workspace'));
     if (!pyproject || !workspace) continue
     const rel = relPosix(level, dir);
     if (matchesWorkspacePatterns(strings$1(workspace['members']), rel) && !matchesWorkspacePatterns(strings$1(workspace['exclude']), rel)) {
@@ -39148,18 +39787,18 @@ function detectPackageManager(
   manifests,
   uvWorkspace,
 ) {
-  const tool = _optionalChain$2([pyproject, 'optionalAccess', _8 => _8.tool]);
+  const tool = _optionalChain$3([pyproject, 'optionalAccess', _8 => _8.tool]);
 
-  const lock = LOCKFILES.find((l) => l.file === path$1.posix.basename(lockfile));
-  if (_optionalChain$2([lock, 'optionalAccess', _9 => _9.pm])) return { pm: lock.pm, version: '' }
+  const lock = LOCKFILES$1.find((l) => l.file === path$1.posix.basename(lockfile));
+  if (_optionalChain$3([lock, 'optionalAccess', _9 => _9.pm])) return { pm: lock.pm, version: '' }
   if (uvWorkspace) return { pm: 'uv', version: '' }
 
-  if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: _nullishCoalesce$4(str$1(get(tool, 'uv', 'required-version')), () => ( '')) }
-  if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: _nullishCoalesce$4(str$1(get(tool, 'poetry', 'requires-poetry')), () => ( '')) }
+  if (get(tool, 'uv') !== undefined) return { pm: 'uv', version: _nullishCoalesce$5(str$1(get(tool, 'uv', 'required-version')), () => ( '')) }
+  if (get(tool, 'poetry') !== undefined) return { pm: 'poetry', version: _nullishCoalesce$5(str$1(get(tool, 'poetry', 'requires-poetry')), () => ( '')) }
   if (get(tool, 'pdm') !== undefined) return { pm: 'pdm', version: '' }
   if (get(tool, 'hatch', 'envs') !== undefined) return { pm: 'hatch', version: '' }
 
-  const backend = _nullishCoalesce$4(str$1(_optionalChain$2([pyproject, 'optionalAccess', _10 => _10.buildSystem, 'optionalAccess', _11 => _11['build-backend']])), () => ( ''));
+  const backend = _nullishCoalesce$5(str$1(_optionalChain$3([pyproject, 'optionalAccess', _10 => _10.buildSystem, 'optionalAccess', _11 => _11['build-backend']])), () => ( ''));
   if (/^poetry(\.core)?\.masonry/.test(backend) || backend === 'poetry.core.masonry.api') return { pm: 'poetry', version: '' }
   if (/^pdm\./.test(backend)) return { pm: 'pdm', version: '' }
 
@@ -39170,7 +39809,7 @@ function detectPackageManager(
 async function poetryLockVersion(dir) {
   const text = await readText(path$1.join(dir, 'poetry.lock'));
   const match = text ? /@generated by Poetry (\S+?)(?:\s|$)/.exec(text) : null;
-  return _nullishCoalesce$4(_optionalChain$2([match, 'optionalAccess', _12 => _12[1]]), () => ( ''))
+  return _nullishCoalesce$5(_optionalChain$3([match, 'optionalAccess', _12 => _12[1]]), () => ( ''))
 }
 
 /** PEP 508 project name. Anything else is not put into a shell command. */
@@ -39204,9 +39843,9 @@ function installCommand(pm, lockfile, manifests, uvMember) {
 function pyprojectRuntime(dir, pyproject) {
   if (!pyproject) return undefined
   const file = path$1.join(dir, 'pyproject.toml');
-  const requiresPython = _optionalChain$2([str$1, 'call', _13 => _13(_optionalChain$2([pyproject, 'access', _14 => _14.project, 'optionalAccess', _15 => _15['requires-python']])), 'optionalAccess', _16 => _16.trim, 'call', _17 => _17()]);
+  const requiresPython = _optionalChain$3([str$1, 'call', _13 => _13(_optionalChain$3([pyproject, 'access', _14 => _14.project, 'optionalAccess', _15 => _15['requires-python']])), 'optionalAccess', _16 => _16.trim, 'call', _17 => _17()]);
   if (requiresPython) return { value: requiresPython, file, field: 'project.requires-python', setupReadable: true }
-  const poetryPython = _optionalChain$2([str$1, 'call', _18 => _18(get(pyproject.tool, 'poetry', 'dependencies', 'python')), 'optionalAccess', _19 => _19.trim, 'call', _20 => _20()]);
+  const poetryPython = _optionalChain$3([str$1, 'call', _18 => _18(get(pyproject.tool, 'poetry', 'dependencies', 'python')), 'optionalAccess', _19 => _19.trim, 'call', _20 => _20()]);
   if (poetryPython) {
     return { value: poetryPython, file, field: 'tool.poetry.dependencies.python', setupReadable: !('project' in pyproject.raw) }
   }
@@ -39220,7 +39859,7 @@ async function pipfileRuntime(dir) {
   try {
     const requires = table$1((parse(pipfile) )['requires']);
     for (const key of ['python_full_version', 'python_version']) {
-      const v = str$1(_optionalChain$2([requires, 'optionalAccess', _21 => _21[key]]));
+      const v = str$1(_optionalChain$3([requires, 'optionalAccess', _21 => _21[key]]));
       if (v) return { value: v, file, field: `requires.${key}`, setupReadable: true }
     }
   } catch (e3) {
@@ -39233,7 +39872,7 @@ async function runtimeTxt(dir) {
   const file = path$1.join(dir, 'runtime.txt');
   const value = await readVersionFile(file);
   const match = value ? /^python-?(.+)$/i.exec(value) : null;
-  return _optionalChain$2([match, 'optionalAccess', _22 => _22[1]]) ? { value: match[1], file, field: '', setupReadable: false } : undefined
+  return _optionalChain$3([match, 'optionalAccess', _22 => _22[1]]) ? { value: match[1], file, field: '', setupReadable: false } : undefined
 }
 
 const pythonDetector = {
@@ -39253,34 +39892,34 @@ const pythonDetector = {
 
     // --- name ---
     const name =
-      _nullishCoalesce$4(_nullishCoalesce$4(_nullishCoalesce$4(_nullishCoalesce$4(str$1(_optionalChain$2([pyproject, 'optionalAccess', _23 => _23.project, 'optionalAccess', _24 => _24['name']])), () => (
-      str$1(get(_optionalChain$2([pyproject, 'optionalAccess', _25 => _25.tool]), 'poetry', 'name')))), () => (
-      _optionalChain$2([setupCfg, 'access', _26 => _26['metadata'], 'optionalAccess', _27 => _27['name']]))), () => (
-      (setupPy ? _optionalChain$2([/\bname\s*=\s*["']([^"']+)["']/, 'access', _28 => _28.exec, 'call', _29 => _29(setupPy), 'optionalAccess', _30 => _30[1]]) : undefined))), () => (
+      _nullishCoalesce$5(_nullishCoalesce$5(_nullishCoalesce$5(_nullishCoalesce$5(str$1(_optionalChain$3([pyproject, 'optionalAccess', _23 => _23.project, 'optionalAccess', _24 => _24['name']])), () => (
+      str$1(get(_optionalChain$3([pyproject, 'optionalAccess', _25 => _25.tool]), 'poetry', 'name')))), () => (
+      _optionalChain$3([setupCfg, 'access', _26 => _26['metadata'], 'optionalAccess', _27 => _27['name']]))), () => (
+      (setupPy ? _optionalChain$3([/\bname\s*=\s*["']([^"']+)["']/, 'access', _28 => _28.exec, 'call', _29 => _29(setupPy), 'optionalAccess', _30 => _30[1]]) : undefined))), () => (
       ''));
 
     // --- version ---
-    const dynamic = _optionalChain$2([pyproject, 'optionalAccess', _31 => _31.project, 'optionalAccess', _32 => _32['dynamic']]);
+    const dynamic = _optionalChain$3([pyproject, 'optionalAccess', _31 => _31.project, 'optionalAccess', _32 => _32['dynamic']]);
     const isDynamic = Array.isArray(dynamic) && dynamic.includes('version');
     const setupCfgVersion = async () => {
-      const raw = _optionalChain$2([setupCfg, 'access', _33 => _33['metadata'], 'optionalAccess', _34 => _34['version']]);
+      const raw = _optionalChain$3([setupCfg, 'access', _33 => _33['metadata'], 'optionalAccess', _34 => _34['version']]);
       if (!raw) return undefined
-      const attr = _optionalChain$2([/^attr:\s*(.+)$/, 'access', _35 => _35.exec, 'call', _36 => _36(raw), 'optionalAccess', _37 => _37[1], 'optionalAccess', _38 => _38.trim, 'call', _39 => _39()]);
-      const file = _optionalChain$2([/^file:\s*(.+)$/, 'access', _40 => _40.exec, 'call', _41 => _41(raw), 'optionalAccess', _42 => _42[1], 'optionalAccess', _43 => _43.trim, 'call', _44 => _44()]);
+      const attr = _optionalChain$3([/^attr:\s*(.+)$/, 'access', _35 => _35.exec, 'call', _36 => _36(raw), 'optionalAccess', _37 => _37[1], 'optionalAccess', _38 => _38.trim, 'call', _39 => _39()]);
+      const file = _optionalChain$3([/^file:\s*(.+)$/, 'access', _40 => _40.exec, 'call', _41 => _41(raw), 'optionalAccess', _42 => _42[1], 'optionalAccess', _43 => _43.trim, 'call', _44 => _44()]);
       if (attr) return versionHit(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`)
       if (file) return versionHit(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`)
       return versionHit(raw, 'setup.cfg:metadata.version')
     };
 
     const version = await resolveFirst(ctx, 'python version', [
-      { name: 'pyproject.toml:project.version', read: () => versionHit(str$1(_optionalChain$2([pyproject, 'optionalAccess', _45 => _45.project, 'optionalAccess', _46 => _46['version']])), 'pyproject.toml:project.version') },
+      { name: 'pyproject.toml:project.version', read: () => versionHit(str$1(_optionalChain$3([pyproject, 'optionalAccess', _45 => _45.project, 'optionalAccess', _46 => _46['version']])), 'pyproject.toml:project.version') },
       {
         name: 'pyproject.toml:tool.poetry.version',
-        read: () => versionHit(str$1(get(_optionalChain$2([pyproject, 'optionalAccess', _47 => _47.tool]), 'poetry', 'version')), 'pyproject.toml:tool.poetry.version'),
+        read: () => versionHit(str$1(get(_optionalChain$3([pyproject, 'optionalAccess', _47 => _47.tool]), 'poetry', 'version')), 'pyproject.toml:tool.poetry.version'),
       },
       { name: 'dynamic version', read: async () => (pyproject && isDynamic ? dynamicVersion(dir, pyproject) : undefined) },
       { name: 'setup.cfg:metadata.version', read: setupCfgVersion },
-      { name: 'setup.py', read: () => versionHit(setupPy ? _optionalChain$2([/\bversion\s*=\s*["']([^"']+)["']/, 'access', _48 => _48.exec, 'call', _49 => _49(setupPy), 'optionalAccess', _50 => _50[1]]) : undefined, 'setup.py') },
+      { name: 'setup.py', read: () => versionHit(setupPy ? _optionalChain$3([/\bversion\s*=\s*["']([^"']+)["']/, 'access', _48 => _48.exec, 'call', _49 => _49(setupPy), 'optionalAccess', _50 => _50[1]]) : undefined, 'setup.py') },
       versionFileSource(dir),
       ...releaseToolSources(ctx),
       { name: '__version__ in the project package', read: () => scanForDunderVersion(dir, name) },
@@ -39292,15 +39931,15 @@ const pythonDetector = {
     // Workspace members share the workspace root's lockfile.
     const ownLock = await findLockfile(dir);
     const rootLock = !ownLock && uvWorkspace && (await isFile(path$1.join(uvWorkspace.dir, 'uv.lock'))) ? path$1.join(uvWorkspace.dir, 'uv.lock') : undefined;
-    const lockfile = _nullishCoalesce$4(ownLock, () => ( (rootLock ? relPosix(dir, rootLock) : '')));
+    const lockfile = _nullishCoalesce$5(ownLock, () => ( (rootLock ? relPosix(dir, rootLock) : '')));
     const pmInfo = detectPackageManager(pyproject, lockfile, present, uvWorkspace);
     let packageManagerVersion = pmInfo.version;
     if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = await poetryLockVersion(dir);
     if (pmInfo.pm === 'uv' && !packageManagerVersion) {
       packageManagerVersion =
-        _nullishCoalesce$4(_nullishCoalesce$4(str$1(get(_optionalChain$2([pyproject, 'optionalAccess', _51 => _51.tool]), 'uv', 'required-version')), () => ( str$1(get(_optionalChain$2([uvWorkspace, 'optionalAccess', _52 => _52.pyproject, 'access', _53 => _53.tool]), 'uv', 'required-version')))), () => ( ''));
+        _nullishCoalesce$5(_nullishCoalesce$5(str$1(get(_optionalChain$3([pyproject, 'optionalAccess', _51 => _51.tool]), 'uv', 'required-version')), () => ( str$1(get(_optionalChain$3([uvWorkspace, 'optionalAccess', _52 => _52.pyproject, 'access', _53 => _53.tool]), 'uv', 'required-version')))), () => ( ''));
     }
-    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$4(str$1(get(_optionalChain$2([pyproject, 'optionalAccess', _54 => _54.tool]), 'poetry', 'requires-poetry')), () => ( ''));
+    if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = _nullishCoalesce$5(str$1(get(_optionalChain$3([pyproject, 'optionalAccess', _54 => _54.tool]), 'poetry', 'requires-poetry')), () => ( ''));
 
     // --- runtime ---
     const runtime = await resolveRuntime(ctx, 'python runtime', (level) =>
@@ -39310,7 +39949,7 @@ const pythonDetector = {
             () => pyprojectRuntime(level, pyproject),
             () => pipfileRuntime(level),
             () => {
-              const v = _optionalChain$2([setupCfg, 'access', _55 => _55['options'], 'optionalAccess', _56 => _56['python_requires']]);
+              const v = _optionalChain$3([setupCfg, 'access', _55 => _55['options'], 'optionalAccess', _56 => _56['python_requires']]);
               return v ? { value: v, file: path$1.join(level, 'setup.cfg'), field: 'options.python_requires', setupReadable: false } : undefined
             },
             () => runtimeTxt(level),
@@ -39319,20 +39958,20 @@ const pythonDetector = {
           ]
         : [
             () => versionFileRuntime(level, ['.python-version']),
-            () => (level === _optionalChain$2([uvWorkspace, 'optionalAccess', _57 => _57.dir]) ? pyprojectRuntime(level, uvWorkspace.pyproject) : undefined),
+            () => (level === _optionalChain$3([uvWorkspace, 'optionalAccess', _57 => _57.dir]) ? pyprojectRuntime(level, uvWorkspace.pyproject) : undefined),
             () => toolVersionsRuntime(level, 'python'),
             () => miseRuntime(level, 'python'),
           ],
     );
 
-    const installRoot = _nullishCoalesce$4(_optionalChain$2([uvWorkspace, 'optionalAccess', _58 => _58.dir]), () => ( dir));
+    const installRoot = _nullishCoalesce$5(_optionalChain$3([uvWorkspace, 'optionalAccess', _58 => _58.dir]), () => ( dir));
     const cacheDependencyPath = lockfile || (present.has('requirements.txt') ? 'requirements.txt' : manifest);
 
     return {
       language: 'python',
       name,
-      version: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _59 => _59.value]), () => ( '')),
-      versionSource: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _60 => _60.source]), () => ( '')),
+      version: _nullishCoalesce$5(_optionalChain$3([version, 'optionalAccess', _59 => _59.value]), () => ( '')),
+      versionSource: _nullishCoalesce$5(_optionalChain$3([version, 'optionalAccess', _60 => _60.source]), () => ( '')),
       packageManager: pmInfo.pm,
       packageManagerVersion,
       ...runtimeFields(dir, runtime),
@@ -39341,6 +39980,107 @@ const pythonDetector = {
       workspaceRoot: relPosix(dir, installRoot),
       installCommand: installCommand(pmInfo.pm, lockfile, present, uvWorkspace && name ? name : undefined),
       cacheDependencyPath,
+    }
+  },
+};
+
+function _nullishCoalesce$4(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } } async function _asyncNullishCoalesce$2(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return await rhsFn(); } } function _optionalChain$2(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = fn(value); } else if (op === 'call' || op === 'optionalCall') { value = fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; } async function _asyncOptionalChain(ops) { let lastAccessLHS = undefined; let value = ops[0]; let i = 1; while (i < ops.length) { const op = ops[i]; const fn = ops[i + 1]; i += 2; if ((op === 'optionalAccess' || op === 'optionalCall') && value == null) { return undefined; } if (op === 'access' || op === 'optionalAccess') { lastAccessLHS = value; value = await fn(value); } else if (op === 'call' || op === 'optionalCall') { value = await fn((...args) => value.call(lastAccessLHS, ...args)); lastAccessLHS = undefined; } } return value; }
+const GEMFILES = ['Gemfile', 'gems.rb'];
+const LOCKFILES = ['Gemfile.lock', 'gems.locked'];
+
+async function findGemspec(dir) {
+  return (await _asyncNullishCoalesce$2((await listDir(dir)), async () => ( [])))
+    .filter((e) => e.isFile() && e.name.endsWith('.gemspec'))
+    .map((e) => e.name)
+    .sort()[0]
+}
+
+/** `spec.version = Foo::VERSION` lives in `lib/<name>/version.rb` (`foo-bar` → `lib/foo/bar` or `lib/foo_bar`). */
+async function versionFromVersionRb(dir, gemName) {
+  const candidates = gemName ? [...new Set([gemName, gemName.replace(/-/g, '/'), gemName.replace(/-/g, '_')])].map((n) => `lib/${n}/version.rb`) : [];
+  // Without a match by name, a single lib/*/version.rb is unambiguous.
+  const libDirs = (await _asyncNullishCoalesce$2((await listDir(path$1.join(dir, 'lib'))), async () => ( []))).filter((e) => e.isDirectory()).map((e) => `lib/${e.name}/version.rb`);
+  const existing = [];
+  for (const file of libDirs) if ((await readText(path$1.join(dir, file))) !== undefined) existing.push(file);
+  if (existing.length === 1) candidates.push(existing[0]);
+  for (const file of candidates) {
+    const source = await readText(path$1.join(dir, file));
+    const version = source ? extractAssignedVersion(source, ['VERSION']) : undefined;
+    if (version && /\d/.test(version)) return { value: version, source: file }
+  }
+  return undefined
+}
+
+/** `ruby "3.3.0"` / `ruby "~> 3.2"` or `ruby file: ".ruby-version"` in the Gemfile. */
+async function gemfileRuby(dir, gemfile) {
+  if (!gemfile) return undefined
+  const text = await _asyncNullishCoalesce$2((await readText(path$1.join(dir, gemfile))), async () => ( ''));
+  const direct = _optionalChain$2([/^\s*ruby\s*\(?\s*["']([^"']+)["']/m, 'access', _ => _.exec, 'call', _2 => _2(text), 'optionalAccess', _3 => _3[1]]);
+  if (direct) return { value: direct.trim(), file: path$1.join(dir, gemfile), field: 'ruby', setupReadable: false }
+  const fromFile = _optionalChain$2([/^\s*ruby\s*\(?\s*file:\s*["']([^"']+)["']/m, 'access', _4 => _4.exec, 'call', _5 => _5(text), 'optionalAccess', _6 => _6[1]]);
+  if (fromFile) {
+    const file = path$1.join(dir, fromFile);
+    const value = await readVersionFile(file);
+    if (value) return { value, file, field: '', setupReadable: path$1.basename(file) === '.ruby-version' }
+  }
+  return undefined
+}
+
+/** `RUBY VERSION` section of Gemfile.lock (`ruby 3.3.0p0` → `3.3.0`). */
+async function lockfileRuby(dir, lockfile) {
+  if (!lockfile) return undefined
+  const text = await _asyncNullishCoalesce$2((await readText(path$1.join(dir, lockfile))), async () => ( ''));
+  const value = _optionalChain$2([/^RUBY VERSION\r?\n\s+ruby\s+(\S+)/m, 'access', _7 => _7.exec, 'call', _8 => _8(text), 'optionalAccess', _9 => _9[1], 'optionalAccess', _10 => _10.replace, 'call', _11 => _11(/p\d+$/, '')]);
+  return value ? { value, file: path$1.join(dir, lockfile), field: 'RUBY VERSION', setupReadable: false } : undefined
+}
+
+const rubyDetector = {
+  language: 'ruby',
+  async detect(ctx) {
+    const { dir } = ctx;
+    const gemfile = await firstExisting(dir, GEMFILES);
+    const gemspec = await findGemspec(dir);
+    const manifest = _nullishCoalesce$4(gemfile, () => ( gemspec));
+    if (!manifest) return undefined
+
+    const spec = gemspec ? (await _asyncNullishCoalesce$2((await readText(path$1.join(dir, gemspec))), async () => ( ''))) : '';
+    // `spec.name = "x"`, or the positional form `Gem::Specification.new 'x', '1.0.0' do |s|` (sinatra).
+    const positional = /Gem::Specification\.new\s*\(?\s*["']([^"']+)["'](?:\s*,\s*(?:["']([^"']+)["'])?)?/.exec(spec);
+    const name = _nullishCoalesce$4(_nullishCoalesce$4(_optionalChain$2([/\.name\s*=\s*["']([^"']+)["']/, 'access', _12 => _12.exec, 'call', _13 => _13(spec), 'optionalAccess', _14 => _14[1]]), () => ( _optionalChain$2([positional, 'optionalAccess', _15 => _15[1]]))), () => ( ''));
+    const literalVersion = _nullishCoalesce$4(_optionalChain$2([/\.version\s*=\s*["']([^"']+)["']/, 'access', _16 => _16.exec, 'call', _17 => _17(spec), 'optionalAccess', _18 => _18[1]]), () => ( _optionalChain$2([positional, 'optionalAccess', _19 => _19[2]])));
+    const lockfile = await _asyncNullishCoalesce$2((await firstExisting(dir, LOCKFILES)), async () => ( ''));
+
+    const version = await resolveFirst(ctx, 'ruby version', [
+      { name: 'gemspec version', read: () => (gemspec ? versionHit(literalVersion, `${gemspec}:version`) : undefined) },
+      { name: 'VERSION in lib/*/version.rb', read: () => versionFromVersionRb(dir, name) },
+      versionFileSource(dir),
+      ...releaseToolSources(ctx),
+    ]);
+
+    const bundler = lockfile ? await _asyncOptionalChain([/^BUNDLED WITH\r?\n\s+(\S+)/m, 'access', async _20 => _20.exec, 'call', async _21 => _21(await _asyncNullishCoalesce$2((await readText(path$1.join(dir, lockfile))), async () => ( ''))), 'optionalAccess', async _22 => _22[1]]) : undefined;
+
+    // setup-ruby reads .ruby-version, .tool-versions and mise.toml (in its working-directory) by itself.
+    const runtime = await resolveRuntime(ctx, 'ruby runtime', (level) => [
+      () => versionFileRuntime(level, ['.ruby-version']),
+      ...(level === dir ? [() => gemfileRuby(dir, gemfile), () => lockfileRuby(dir, lockfile || undefined)] : []),
+      () => toolVersionsRuntime(level, 'ruby'),
+      () => miseRuntime(level, 'ruby'),
+    ]);
+
+    return {
+      language: 'ruby',
+      name,
+      version: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _23 => _23.value]), () => ( '')),
+      versionSource: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _24 => _24.source]), () => ( '')),
+      packageManager: 'bundler',
+      packageManagerVersion: _nullishCoalesce$4(bundler, () => ( '')),
+      ...runtimeFields(dir, runtime),
+      manifest,
+      lockfile,
+      workspaceRoot: '.',
+      // Bundler needs a Gemfile; a bare gemspec has nothing to install from.
+      installCommand: gemfile ? 'bundle install' : '',
+      cacheDependencyPath: lockfile,
     }
   },
 };
@@ -39502,7 +40242,17 @@ const rustDetector = {
  * Detection order also defines which language wins when several are present in one directory.
  * New languages are appended so that the primary language of existing mixed projects never changes.
  */
-const detectors = [nodeDetector, pythonDetector, goDetector, rustDetector, dartDetector];
+const detectors = [
+  nodeDetector,
+  pythonDetector,
+  goDetector,
+  rustDetector,
+  dartDetector,
+  rubyDetector,
+  phpDetector,
+  dotnetDetector,
+  javaDetector,
+];
 
 const languages = detectors.map((d) => d.language);
 
@@ -39513,9 +40263,13 @@ const LANGUAGE_NAMES = {
   go: 'Go',
   rust: 'Rust',
   dart: 'Dart/Flutter',
+  ruby: 'Ruby',
+  php: 'PHP',
+  dotnet: '.NET',
+  java: 'Java/JVM',
 };
 
-/** "Node.js, Python, Go, Rust and Dart/Flutter" */
+/** "Node.js, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET and Java/JVM" */
 function supportedLanguagesText() {
   const names = languages.map((l) => LANGUAGE_NAMES[l]);
   return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`

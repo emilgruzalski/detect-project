@@ -1,0 +1,13 @@
+{
+  "name": "fixture/app",
+  "description": "Fixture for the detect-project e2e tests",
+  "type": "project",
+  "require": {
+    "php": "^8.2"
+  },
+  "config": {
+    "platform": {
+      "php": "8.2.12"
+    }
+  }
+}

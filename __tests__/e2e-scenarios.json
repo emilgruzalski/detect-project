@@ -113,6 +113,88 @@
       }
     },
     {
+      "name": "ruby gem",
+      "working-directory": "__tests__/fixtures/ruby-gem",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "ruby",
+        "name": "fixture-gem",
+        "version": "0.4.2",
+        "version-source": "lib/fixture/gem/version.rb",
+        "package-manager": "bundler",
+        "package-manager-version": "2.5.22",
+        "language-version": "3.3.5",
+        "language-version-file": "__tests__/fixtures/ruby-gem/.ruby-version",
+        "install-command": "bundle install",
+        "cache-dependency-path": "__tests__/fixtures/ruby-gem/Gemfile.lock"
+      }
+    },
+    {
+      "name": "php composer",
+      "working-directory": "__tests__/fixtures/php-composer",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "php",
+        "name": "fixture/app",
+        "package-manager": "composer",
+        "language-version": "8.2.12",
+        "language-version-source": "composer.lock:platform-overrides.php",
+        "install-command": "composer install --no-interaction",
+        "cache-dependency-path": "__tests__/fixtures/php-composer/composer.lock"
+      }
+    },
+    {
+      "name": "dotnet project",
+      "working-directory": "__tests__/fixtures/dotnet-api",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "dotnet",
+        "name": "Fixture.Api",
+        "version": "5.0.1",
+        "version-source": "Fixture.Api.csproj:Version",
+        "package-manager": "dotnet",
+        "language-version": "9.0.100",
+        "language-version-source": "global.json:sdk.version",
+        "language-version-file": "__tests__/fixtures/dotnet-api/global.json",
+        "install-command": "dotnet restore --locked-mode",
+        "cache-dependency-path": "__tests__/fixtures/dotnet-api/packages.lock.json"
+      }
+    },
+    {
+      "name": "maven module",
+      "working-directory": "__tests__/fixtures/maven-multi/core",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "java",
+        "name": "fixture-core",
+        "version": "4.2.0",
+        "version-source": "pom.xml:parent.version",
+        "package-manager": "maven",
+        "package-manager-version": "3.9.9",
+        "language-version": "21",
+        "language-version-source": "../pom.xml:properties.maven.compiler.release",
+        "workspace-root": "__tests__/fixtures/maven-multi",
+        "install-command": ""
+      }
+    },
+    {
+      "name": "gradle android app",
+      "working-directory": "__tests__/fixtures/gradle-android/app",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "java",
+        "name": "app",
+        "version": "1.4.0+27",
+        "version-build": "27",
+        "version-source": "build.gradle.kts:versionName",
+        "package-manager": "gradle",
+        "package-manager-version": "8.11.1",
+        "language-version": "17",
+        "language-version-source": "build.gradle.kts:sourceCompatibility",
+        "workspace-root": "__tests__/fixtures/gradle-android"
+      }
+    },
+    {
       "name": "discover a rust workspace",
       "working-directory": "__tests__/fixtures/rust-workspace",
       "discover": true,

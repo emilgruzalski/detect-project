@@ -5,6 +5,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-04
+
+### Added
+
+- **Ruby** (`language: ruby`, package manager `bundler`): `Gemfile` / `gems.rb` / gemspec; name and version from the gemspec (incl. the positional `Gem::Specification.new "name"` form) or `lib/<name>/version.rb`; Bundler version from `BUNDLED WITH`; runtime from `.ruby-version` → Gemfile `ruby` (incl. `file:`) → `Gemfile.lock` `RUBY VERSION` → asdf/mise; `bundle install`.
+- **PHP** (`language: php`, package manager `composer`): `composer.json` / `composer.lock`; version from `version`, release tooling or git tags; runtime in setup-php's order — `.php-version`, `composer.lock` `platform-overrides.php`, `config.platform.php` — then `require.php` and asdf/mise; `composer install --no-interaction`.
+- **.NET** (`language: dotnet`, package manager `dotnet`): solutions and C#/F#/VB projects; version from `Version` / `VersionPrefix`[-`VersionSuffix`] in the project, the nearest `Directory.Build.props` and the local files it imports, Nerdbank.GitVersioning `version.json`, release tooling or git tags; SDK from `global.json` (up to the repository root) → highest target framework → asdf/mise; `dotnet restore` (`--locked-mode` with `packages.lock.json`).
+- **Java/JVM** (`language: java`, package manager `maven` or `gradle`): Maven POMs (`${revision}` and `.mvn/maven.config`, in-repo parent versions, `<modules>` aggregator chains, Maven wrapper version, `maven.compiler.release` / `java.version`) and Gradle builds (settings `include`s, `gradle.properties` / `version`, Android `versionName` + `versionCode`, toolchains and `sourceCompatibility`, Gradle wrapper version); `.java-version` / `.sdkmanrc` / `.tool-versions` as read by setup-java; `./mvnw -B dependency:go-offline` for single-module Maven builds.
+- `language-version-file` for `php-version-file`, `global-json-file`, `java-version-file` and the files setup-ruby reads itself.
+- Corpus: rack, sinatra, laravel/laravel, composer/composer, Serilog, Polly, gson, spring-petclinic and nowinandroid (32 repositories in total). It caught the positional gemspec form (sinatra) and versions in an imported `Directory.Version.props` (Serilog), both fixed with regression tests.
+
+### Changed
+
+- New languages are appended to the detection order (`… → dart → ruby → php → dotnet → java`). A Laravel app with its Vite `package.json` stays `node` by default — set `language-priority: php`.
+
 ## [1.3.0] - 2026-11-04
 
 ### Added
@@ -87,7 +102,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
-[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/emilgruzalski/detect-project/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/emilgruzalski/detect-project/compare/v1.0.1...v1.1.0
