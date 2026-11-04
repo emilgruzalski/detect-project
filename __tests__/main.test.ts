@@ -21,12 +21,14 @@ const core = vi.hoisted(() => {
     setFailed: vi.fn(),
     info: vi.fn(),
     warning: vi.fn(),
+    debug: vi.fn(),
     summary,
   }
 })
 vi.mock('@actions/core', () => core)
 
-import { run } from '../src/main.js'
+import { escapeHtml, parseDepth, parseList, run } from '../src/main.js'
+import { git, makeGitRepo } from './helpers.js'
 
 const dirs: string[] = []
 const project = async (files: Record<string, string>) => {
@@ -230,6 +232,143 @@ describe('run', () => {
       'workspace-root': '',
       'install-command': '',
       'cache-dependency-path': '',
+      projects: '[]',
     })
+  })
+
+  it('wires the detectors to core.debug', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project({ 'package.json': '{"version":"1.0.0"}' })
+    await run()
+    expect(core.debug).toHaveBeenCalledWith('[.] node version: "1.0.0" from package.json:version')
+  })
+
+  it('passes tag-pattern to the git-tag fallback', async () => {
+    const repo = await makeGitRepo({ 'go.mod': 'module x\n' })
+    dirs.push(repo)
+    git(repo, 'tag', 'release-2.4.0')
+    process.env['GITHUB_WORKSPACE'] = repo
+    await run()
+    expect(outputs()['version']).toBe('')
+
+    vi.clearAllMocks()
+    core.inputs = { 'tag-pattern': 'release-*' }
+    await run()
+    expect(outputs()).toMatchObject({ version: '2.4.0', 'version-source': 'git-tag' })
+  })
+
+  it('escapes repository-controlled values in the job summary', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project({ 'package.json': '{"name":"<img src=x onerror=alert(1)>","version":"1.0.0"}' })
+    await run()
+    const rows = core.summary.addTable.mock.calls[0]![0] as string[][]
+    expect(rows[1]![1]).toBe('&lt;img src=x onerror=alert(1)&gt;')
+  })
+})
+
+describe('run: discover', () => {
+  const monorepo = {
+    'package.json': '{"name":"root","private":true,"workspaces":["apps/*","packages/*"],"packageManager":"pnpm@9.12.0"}',
+    'pnpm-lock.yaml': "lockfileVersion: '9.0'\n",
+    'apps/web/package.json': '{"name":"web","version":"1.0.0"}',
+    'apps/api/go.mod': 'module example.com/api\n\ngo 1.24\n',
+    'apps/api/package.json': '{"name":"api-tools","private":true}',
+    'packages/ui/package.json': '{"name":"ui","version":"0.1.0"}',
+    'packages/ui/node_modules/dep/package.json': '{"name":"dep","version":"9.9.9"}',
+    'services/worker/pyproject.toml': '[project]\nname="worker"\nversion="0.5.0"\n',
+    'services/worker/uv.lock': '',
+    '.github/actions/local/package.json': '{"name":"hidden"}',
+    'examples/demo/package.json': '{"name":"demo"}',
+    'testdata/fake/go.mod': 'module fake\n',
+    'deep/a/b/c/package.json': '{"name":"too-deep"}',
+  }
+
+  const projects = () => JSON.parse(outputs()['projects'] ?? '[]') as Array<Record<string, unknown>>
+
+  it('reports every project below working-directory as a JSON matrix', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project(monorepo)
+    core.inputs = { discover: 'true' }
+    await run()
+    expect(projects().map((p) => [p['directory'], p['language'], p['languages']])).toEqual([
+      ['.', 'node', ['node']],
+      ['apps/api', 'node', ['node', 'go']],
+      ['apps/web', 'node', ['node']],
+      ['examples/demo', 'node', ['node']],
+      ['packages/ui', 'node', ['node']],
+      ['services/worker', 'python', ['python']],
+    ])
+    expect(projects().find((p) => p['directory'] === 'apps/web')).toMatchObject({
+      name: 'web',
+      version: '1.0.0',
+      packageManager: 'pnpm',
+      lockfile: '../../pnpm-lock.yaml',
+      workspaceRoot: '.',
+      installCommand: 'pnpm install --frozen-lockfile',
+      cacheDependencyPath: 'pnpm-lock.yaml',
+    })
+    expect(projects().find((p) => p['directory'] === 'services/worker')).toMatchObject({ installCommand: 'uv sync --locked', workspaceRoot: 'services/worker' })
+    // The regular outputs still describe working-directory itself.
+    expect(outputs()).toMatchObject({ language: 'node', name: 'root' })
+    expect(core.summary.addHeading).toHaveBeenCalledWith('Discovered projects (6)', 3)
+  })
+
+  it('honours discover-max-depth, discover-exclude, language and language-priority', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project(monorepo)
+    core.inputs = { discover: 'true', 'discover-max-depth': '1' }
+    await run()
+    expect(projects().map((p) => p['directory'])).toEqual(['.'])
+
+    vi.clearAllMocks()
+    core.inputs = { discover: 'true', 'discover-max-depth': '4', 'discover-exclude': 'examples, packages/*' }
+    await run()
+    expect(projects().map((p) => p['directory'])).toEqual(['.', 'apps/api', 'apps/web', 'services/worker', 'deep/a/b/c'])
+
+    vi.clearAllMocks()
+    core.inputs = { discover: 'true', language: 'go' }
+    await run()
+    expect(projects().map((p) => p['directory'])).toEqual(['apps/api'])
+
+    vi.clearAllMocks()
+    core.inputs = { discover: 'true', 'language-priority': 'go' }
+    await run()
+    expect(projects().find((p) => p['directory'] === 'apps/api')).toMatchObject({ language: 'go', languages: ['go', 'node'] })
+  })
+
+  it('discovers relative to working-directory and reports directories relative to the workspace', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project(monorepo)
+    core.inputs = { discover: 'true', 'working-directory': 'apps' }
+    await run()
+    expect(projects().map((p) => p['directory'])).toEqual(['apps/api', 'apps/web'])
+    // apps/ itself is no project, but discovered projects mean the step does not warn or fail.
+    expect(outputs()['language']).toBe('unknown')
+    expect(core.warning).not.toHaveBeenCalledWith(expect.stringContaining('No supported project'))
+  })
+
+  it('fails with fail-on-unknown only when nothing is found at any depth', async () => {
+    process.env['GITHUB_WORKSPACE'] = await project({ 'README.md': '', 'docs/index.md': '' })
+    core.inputs = { discover: 'true', 'fail-on-unknown': 'true' }
+    await expect(run()).rejects.toThrow('or up to 3 level(s) below it')
+    expect(outputs()['projects']).toBe('[]')
+  })
+
+  it.each(['-1', '11', '2.5', 'deep'])('rejects discover-max-depth %j', async (depth) => {
+    process.env['GITHUB_WORKSPACE'] = await project({})
+    core.inputs = { discover: 'true', 'discover-max-depth': depth }
+    await expect(run()).rejects.toThrow('discover-max-depth must be an integer between 0 and 10')
+  })
+})
+
+describe('input helpers', () => {
+  it('parseList splits on commas and newlines', () => {
+    expect(parseList('a, b\nc,,\n  ')).toEqual(['a', 'b', 'c'])
+    expect(parseList('')).toEqual([])
+  })
+
+  it('parseDepth defaults to 3 and accepts 0..10', () => {
+    expect(parseDepth('')).toBe(3)
+    expect(parseDepth(' 0 ')).toBe(0)
+    expect(parseDepth('10')).toBe(10)
+  })
+
+  it('escapeHtml escapes markup characters', () => {
+    expect(escapeHtml(`<a href="x">&'</a>`)).toBe('&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;')
   })
 })

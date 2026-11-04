@@ -1,11 +1,12 @@
-import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { parse as parseToml } from 'smol-toml'
 import type { Detection, Detector, DetectorContext, PackageManager } from '../types.js'
-import { ancestors, firstExisting, isFile, readText, readVersionFile, relPosix } from '../utils/fs.js'
+import { ancestors, firstExisting, isFile, listDir, readText, readVersionFile, relPosix } from '../utils/fs.js'
 import { parseIni } from '../utils/ini.js'
+import { releaseToolSources } from '../utils/release-tools.js'
 import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, versionFileRuntime, type RuntimeCandidate, type RuntimeHit } from '../utils/runtime.js'
-import { cleanVersion, extractAssignedVersion, gitDescribeTag } from '../utils/version.js'
+import { gitTagSource, resolveFirst, type SourceHit, versionFileSource, versionHit } from '../utils/sources.js'
+import { cleanVersion, extractAssignedVersion } from '../utils/version.js'
 import { matchesWorkspacePatterns } from '../utils/workspace.js'
 
 type PythonPackageManager = Extract<PackageManager, 'pip' | 'poetry' | 'pipenv' | 'uv' | 'pdm' | 'hatch'>
@@ -25,8 +26,6 @@ const LOCKFILES: ReadonlyArray<{ file: string; pm?: PythonPackageManager }> = [
 
 /** PEP 751 named lock files: `pylock.<name>.toml` (the name contains no dots). */
 const NAMED_PYLOCK = /^pylock\.[^.]+\.toml$/
-
-const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt']
 
 /** Version-module file names checked inside a package directory. */
 const VERSION_MODULES = ['__init__.py', '__about__.py', '_version.py', 'version.py', '__version__.py']
@@ -138,7 +137,7 @@ async function versionFromFileSetting(dir: string, file: unknown): Promise<strin
 async function dynamicVersion(
   dir: string,
   pyproject: Pyproject,
-): Promise<{ version: string; source: string } | undefined> {
+): Promise<SourceHit | undefined> {
   const tool = pyproject.tool
 
   // setuptools: [tool.setuptools.dynamic] version = {attr = "pkg.__version__"} | {file = "VERSION"}
@@ -147,10 +146,10 @@ async function dynamicVersion(
     const attr = str(setuptoolsDynamic['attr'])
     if (attr) {
       const v = await versionFromAttr(dir, attr, pyproject)
-      if (v) return { version: v, source: `pyproject.toml:tool.setuptools.dynamic (${attr})` }
+      if (v) return { value: v, source: `pyproject.toml:tool.setuptools.dynamic (${attr})` }
     }
     const v = await versionFromFileSetting(dir, setuptoolsDynamic['file'])
-    if (v) return { version: v, source: 'pyproject.toml:tool.setuptools.dynamic (file)' }
+    if (v) return { value: v, source: 'pyproject.toml:tool.setuptools.dynamic (file)' }
   }
 
   // hatch: [tool.hatch.version] path = "src/pkg/__about__.py" (source = "vcs" → git)
@@ -160,7 +159,7 @@ async function dynamicVersion(
     if (file) {
       const source = await readText(path.join(dir, file))
       const v = source !== undefined ? extractAssignedVersion(source, ['__version__', 'VERSION', 'version']) : undefined
-      if (v) return { version: v, source: file }
+      if (v) return { value: v, source: file }
     }
   }
 
@@ -170,14 +169,14 @@ async function dynamicVersion(
     const file = str(pdmVersion['path'])
     const source = file ? await readText(path.join(dir, file)) : undefined
     const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined
-    if (v && file) return { version: v, source: file }
+    if (v && file) return { value: v, source: file }
   }
 
   // flit: [tool.flit.module] name = "pkg" → reads pkg/__init__.py __version__
   const flitModule = str(get(tool, 'flit', 'module', 'name'))
   if (flitModule) {
     const v = await versionFromAttr(dir, `${flitModule}.__version__`, pyproject)
-    if (v) return { version: v, source: `${flitModule}/__init__.py` }
+    if (v) return { value: v, source: `${flitModule}/__init__.py` }
   }
 
   return undefined
@@ -202,13 +201,7 @@ function usesScmVersioning(pyproject: Pyproject | undefined): boolean {
 async function topLevelPackages(dir: string): Promise<string[]> {
   const found: string[] = []
   for (const root of ['src', '']) {
-    let entries: import('node:fs').Dirent[]
-    try {
-      entries = await fs.readdir(path.join(dir, root), { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const entry of entries) {
+    for (const entry of (await listDir(path.join(dir, root))) ?? []) {
       if (!entry.isDirectory() || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.name)) continue
       if (NON_PROJECT_DIRS.has(entry.name.toLowerCase())) continue
       if (await isFile(path.join(dir, root, entry.name, '__init__.py'))) found.push(root ? `${root}/${entry.name}` : entry.name)
@@ -223,7 +216,7 @@ async function topLevelPackages(dir: string): Promise<string[]> {
  * packages make the guess ambiguous, so nothing is reported then — better no version than another
  * package's (e.g. a vendored library's) version.
  */
-async function scanForDunderVersion(dir: string, projectName: string): Promise<{ version: string; source: string } | undefined> {
+async function scanForDunderVersion(dir: string, projectName: string): Promise<SourceHit | undefined> {
   const named = projectName ? [...new Set([projectName.replace(/[-.]/g, '_').toLowerCase(), projectName.toLowerCase()])] : []
   const packageDirs: string[] = []
   for (const mod of named) for (const root of ['src', '']) packageDirs.push(root ? `${root}/${mod}` : mod)
@@ -235,7 +228,7 @@ async function scanForDunderVersion(dir: string, projectName: string): Promise<{
       const candidate = `${pkgDir}/${file}`
       const source = await readText(path.join(dir, candidate))
       const v = source !== undefined ? extractAssignedVersion(source, ['__version__']) : undefined
-      if (v) return { version: v, source: candidate }
+      if (v) return { value: v, source: candidate }
     }
   }
   return undefined
@@ -244,16 +237,8 @@ async function scanForDunderVersion(dir: string, projectName: string): Promise<{
 async function findLockfile(dir: string): Promise<string | undefined> {
   const fixed = await firstExisting(dir, LOCKFILES.map((l) => l.file))
   if (fixed) return fixed
-  let entries: string[]
-  try {
-    entries = await fs.readdir(dir)
-  } catch {
-    return undefined
-  }
-  for (const entry of entries.filter((e) => NAMED_PYLOCK.test(e)).sort()) {
-    if (await isFile(path.join(dir, entry))) return entry
-  }
-  return undefined
+  const named = ((await listDir(dir)) ?? []).filter((e) => e.isFile() && NAMED_PYLOCK.test(e.name)).map((e) => e.name)
+  return named.sort()[0]
 }
 
 interface UvWorkspace {
@@ -393,54 +378,33 @@ export const pythonDetector: Detector = {
       ''
 
     // --- version ---
-    let version = ''
-    let versionSource = ''
-    const setVersion = (v: string | undefined, source: string): boolean => {
-      if (!v) return false
-      version = cleanVersion(v)
-      versionSource = source
-      return true
-    }
-
-    const projectVersion = str(pyproject?.project?.['version'])
     const dynamic = pyproject?.project?.['dynamic']
     const isDynamic = Array.isArray(dynamic) && dynamic.includes('version')
-
-    if (projectVersion) {
-      setVersion(projectVersion, 'pyproject.toml:project.version')
-    } else if (setVersion(str(get(pyproject?.tool, 'poetry', 'version')), 'pyproject.toml:tool.poetry.version')) {
-      // poetry
-    } else if (pyproject && isDynamic) {
-      const dyn = await dynamicVersion(dir, pyproject)
-      if (dyn) setVersion(dyn.version, dyn.source)
-    }
-
-    if (!version && setupCfg['metadata']?.['version']) {
-      const raw = setupCfg['metadata']['version']
+    const setupCfgVersion = async (): Promise<SourceHit | undefined> => {
+      const raw = setupCfg['metadata']?.['version']
+      if (!raw) return undefined
       const attr = /^attr:\s*(.+)$/.exec(raw)?.[1]?.trim()
       const file = /^file:\s*(.+)$/.exec(raw)?.[1]?.trim()
-      if (attr) setVersion(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`)
-      else if (file) setVersion(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`)
-      else setVersion(raw, 'setup.cfg:metadata.version')
+      if (attr) return versionHit(await versionFromAttr(dir, attr, pyproject), `setup.cfg:metadata.version (${attr})`)
+      if (file) return versionHit(await versionFromFileSetting(dir, file.split(/\s*,\s*/)), `setup.cfg:metadata.version (${file})`)
+      return versionHit(raw, 'setup.cfg:metadata.version')
     }
 
-    if (!version && setupPy) {
-      setVersion(/\bversion\s*=\s*["']([^"']+)["']/.exec(setupPy)?.[1], 'setup.py')
-    }
-
-    if (!version) {
-      const versionFile = await firstExisting(dir, VERSION_FILES)
-      if (versionFile) setVersion(await readVersionFile(path.join(dir, versionFile)), versionFile)
-    }
-
-    if (!version) {
-      const scanned = await scanForDunderVersion(dir, name)
-      if (scanned) setVersion(scanned.version, scanned.source)
-    }
-
-    if (!version && (usesScmVersioning(pyproject) || isDynamic)) {
-      setVersion(await gitDescribeTag(dir), 'git-tag')
-    }
+    const version = await resolveFirst(ctx, 'python version', [
+      { name: 'pyproject.toml:project.version', read: () => versionHit(str(pyproject?.project?.['version']), 'pyproject.toml:project.version') },
+      {
+        name: 'pyproject.toml:tool.poetry.version',
+        read: () => versionHit(str(get(pyproject?.tool, 'poetry', 'version')), 'pyproject.toml:tool.poetry.version'),
+      },
+      { name: 'dynamic version', read: async () => (pyproject && isDynamic ? dynamicVersion(dir, pyproject) : undefined) },
+      { name: 'setup.cfg:metadata.version', read: setupCfgVersion },
+      { name: 'setup.py', read: () => versionHit(setupPy ? /\bversion\s*=\s*["']([^"']+)["']/.exec(setupPy)?.[1] : undefined, 'setup.py') },
+      versionFileSource(dir),
+      ...releaseToolSources(ctx),
+      { name: '__version__ in the project package', read: () => scanForDunderVersion(dir, name) },
+      // Only SCM-versioned projects are versioned by their tags.
+      ...(usesScmVersioning(pyproject) || isDynamic ? [gitTagSource(ctx)] : []),
+    ])
 
     // --- package manager ---
     // Workspace members share the workspace root's lockfile.
@@ -457,7 +421,7 @@ export const pythonDetector: Detector = {
     if (pmInfo.pm === 'poetry' && !packageManagerVersion) packageManagerVersion = str(get(pyproject?.tool, 'poetry', 'requires-poetry')) ?? ''
 
     // --- runtime ---
-    const runtime = await resolveRuntime(ctx, (level): RuntimeCandidate[] =>
+    const runtime = await resolveRuntime(ctx, 'python runtime', (level): RuntimeCandidate[] =>
       level === dir
         ? [
             () => versionFileRuntime(level, ['.python-version']),
@@ -485,8 +449,8 @@ export const pythonDetector: Detector = {
     return {
       language: 'python',
       name,
-      version,
-      versionSource,
+      version: version?.value ?? '',
+      versionSource: version?.source ?? '',
       packageManager: pmInfo.pm,
       packageManagerVersion,
       ...runtimeFields(dir, runtime),

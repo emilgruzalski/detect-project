@@ -1,10 +1,10 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext } from '../types.js'
-import { firstExisting, isFile, readText, readVersionFile, relPosix, walkFiles } from '../utils/fs.js'
+import { firstExisting, isFile, readText, relPosix, walkFiles } from '../utils/fs.js'
+import { releaseToolSources } from '../utils/release-tools.js'
 import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, type RuntimeHit } from '../utils/runtime.js'
-import { cleanVersion, extractAssignedVersion, gitDescribeTag } from '../utils/version.js'
-
-const VERSION_FILES = ['VERSION', 'VERSION.txt', 'version.txt']
+import { gitTagSource, resolveFirst, type SourceHit, versionFileSource } from '../utils/sources.js'
+import { extractAssignedVersion } from '../utils/version.js'
 
 /** Conventional locations of a `Version` constant, checked before falling back to a directory walk. */
 const VERSION_GO_CANDIDATES = [
@@ -39,13 +39,13 @@ function looksLikeVersion(value: string | undefined): value is string {
   return !!value && /\d/.test(value)
 }
 
-async function versionFromGoSource(dir: string): Promise<{ version: string; source: string } | undefined> {
+async function versionFromGoSource(dir: string): Promise<SourceHit | undefined> {
   const identifiers = ['Version', 'version', 'AppVersion', 'BuildVersion', 'VERSION']
-  const tryFile = async (file: string): Promise<{ version: string; source: string } | undefined> => {
+  const tryFile = async (file: string): Promise<SourceHit | undefined> => {
     const source = await readText(path.join(dir, file))
     if (source === undefined) return undefined
     const v = extractAssignedVersion(source, identifiers)
-    return looksLikeVersion(v) ? { version: v, source: file } : undefined
+    return looksLikeVersion(v) ? { value: v, source: file.split(path.sep).join('/') } : undefined
   }
 
   for (const candidate of VERSION_GO_CANDIDATES) {
@@ -88,34 +88,19 @@ export const goDetector: Detector = {
       ? (await isFile(path.join(dir, 'Gopkg.lock'))) ? 'Gopkg.lock' : ''
       : (await firstExisting(dir, ['go.sum', 'go.work.sum'])) ?? ''
 
-    let version = ''
-    let versionSource = ''
-    const versionFile = await firstExisting(dir, VERSION_FILES)
-    if (versionFile) {
-      const v = cleanVersion(await readVersionFile(path.join(dir, versionFile)))
-      if (v) {
-        version = v
-        versionSource = versionFile
-      }
-    }
-    if (!version) {
-      const fromSource = await versionFromGoSource(dir)
-      if (fromSource) ({ version, source: versionSource } = fromSource)
-    }
-    if (!version) {
+    const version = await resolveFirst(ctx, 'go version', [
+      versionFileSource(dir),
+      ...releaseToolSources(ctx),
+      { name: 'Version constant in version*.go', read: () => versionFromGoSource(dir) },
       // Go modules are versioned by git tags, so this is the canonical last resort.
-      const tag = await gitDescribeTag(dir, moduleTagPrefix(dir, ctx.gitRoot))
-      if (tag) {
-        version = tag
-        versionSource = 'git-tag'
-      }
-    }
+      gitTagSource(ctx, moduleTagPrefix(dir, ctx.gitRoot)),
+    ])
 
     // setup-go reads go.mod / go.work itself (toolchain directive first, then go), so both are readable.
     const manifestPath = path.join(dir, manifest)
     const directive = (value: string, field: string): RuntimeHit | undefined =>
       value ? { value, file: manifestPath, field, setupReadable: true } : undefined
-    const runtime = await resolveRuntime(ctx, (level) => [
+    const runtime = await resolveRuntime(ctx, 'go runtime', (level) => [
       ...(level === dir ? [() => directive(goMod.go, 'go'), () => directive(goMod.toolchain, 'toolchain')] : []),
       () => toolVersionsRuntime(level, 'go'),
       () => miseRuntime(level, 'go'),
@@ -124,8 +109,8 @@ export const goDetector: Detector = {
     return {
       language: 'go',
       name: goMod.module,
-      version,
-      versionSource,
+      version: version?.value ?? '',
+      versionSource: version?.source ?? '',
       packageManager: isDep ? 'dep' : 'go',
       packageManagerVersion: goMod.toolchain,
       ...runtimeFields(dir, runtime),

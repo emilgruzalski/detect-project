@@ -1,38 +1,62 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
+import type { Dirent, Stats } from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
+/**
+ * Per-run memo of file system reads. Detection of one directory — and even more so `discover`, which
+ * inspects many directories sharing the same parents — reads the same package.json, lockfiles and
+ * runtime files repeatedly; within `withFileCache` every path is read from disk at most once.
+ */
+interface FileCache {
+  text: Map<string, Promise<string | undefined>>
+  stat: Map<string, Promise<Stats | undefined>>
+  lstat: Map<string, Promise<Stats | undefined>>
+  dir: Map<string, Promise<Dirent[] | undefined>>
+}
+
+const cacheStore = new AsyncLocalStorage<FileCache>()
+
+/** Runs `fn` with a file read cache (reusing the surrounding one when already inside a cached run). */
+export function withFileCache<T>(fn: () => Promise<T>): Promise<T> {
+  if (cacheStore.getStore()) return fn()
+  return cacheStore.run({ text: new Map(), stat: new Map(), lstat: new Map(), dir: new Map() }, fn)
+}
+
+function cached<T>(pick: (cache: FileCache) => Map<string, Promise<T>>, key: string, load: () => Promise<T>): Promise<T> {
+  const cache = cacheStore.getStore()
+  if (!cache) return load()
+  const map = pick(cache)
+  let value = map.get(key)
+  if (!value) {
+    value = load()
+    map.set(key, value)
+  }
+  return value
+}
+
+const statOf = (file: string) => cached((c) => c.stat, file, () => fs.stat(file).catch(() => undefined))
+
 /** True when `file` exists as any kind of entry (file, directory, symlink). */
 export async function exists(file: string): Promise<boolean> {
-  try {
-    await fs.lstat(file)
-    return true
-  } catch {
-    return false
-  }
+  return (await cached((c) => c.lstat, file, () => fs.lstat(file).catch(() => undefined))) !== undefined
 }
 
 export async function isFile(file: string): Promise<boolean> {
-  try {
-    return (await fs.stat(file)).isFile()
-  } catch {
-    return false
-  }
+  return (await statOf(file))?.isFile() ?? false
 }
 
 export async function isDirectory(file: string): Promise<boolean> {
-  try {
-    return (await fs.stat(file)).isDirectory()
-  } catch {
-    return false
-  }
+  return (await statOf(file))?.isDirectory() ?? false
 }
 
 export async function readText(file: string): Promise<string | undefined> {
-  try {
-    return await fs.readFile(file, 'utf8')
-  } catch {
-    return undefined
-  }
+  return cached((c) => c.text, file, () => fs.readFile(file, 'utf8').catch(() => undefined))
+}
+
+/** Directory entries, or undefined when `dir` cannot be read. */
+export async function listDir(dir: string): Promise<Dirent[] | undefined> {
+  return cached((c) => c.dir, dir, () => fs.readdir(dir, { withFileTypes: true }).catch(() => undefined))
 }
 
 export async function readJson<T = unknown>(file: string): Promise<T | undefined> {
@@ -136,12 +160,8 @@ export async function walkFiles(dir: string, opts: WalkOptions): Promise<string[
   for (let depth = 0; depth <= opts.maxDepth && frontier.length > 0; depth++) {
     const next: string[] = []
     for (const rel of frontier) {
-      let entries: import('node:fs').Dirent[]
-      try {
-        entries = await fs.readdir(path.join(dir, rel), { withFileTypes: true })
-      } catch {
-        continue
-      }
+      const entries = await listDir(path.join(dir, rel))
+      if (!entries) continue
       for (const entry of entries) {
         const entryRel = rel ? path.join(rel, entry.name) : entry.name
         if (entry.isDirectory()) {

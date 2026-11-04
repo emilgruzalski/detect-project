@@ -105,14 +105,21 @@ export type RuntimeCandidate = () => Promise<RuntimeHit | undefined> | RuntimeHi
  */
 export async function resolveRuntime(
   ctx: DetectorContext,
+  label: string,
   chain: (level: string) => readonly RuntimeCandidate[],
 ): Promise<RuntimeHit | undefined> {
-  for (const level of [ctx.dir, ...ancestors(ctx.dir, ctx.boundary ?? ctx.dir)]) {
+  const levels = [ctx.dir, ...ancestors(ctx.dir, ctx.boundary ?? ctx.dir)]
+  for (const level of levels) {
     for (const candidate of chain(level)) {
       const hit = await candidate()
-      if (hit?.value) return hit
+      if (hit?.value) {
+        const source = relPosix(ctx.dir, hit.file) + (hit.field ? `:${hit.field}` : '')
+        ctx.debug?.(`${label}: "${hit.value}" from ${source}${hit.setupReadable ? '' : ' (not readable by the setup action)'}`)
+        return hit
+      }
     }
   }
+  ctx.debug?.(`${label}: not found in ${levels.map((l) => relPosix(ctx.dir, l)).join(', ')}`)
   return undefined
 }
 
