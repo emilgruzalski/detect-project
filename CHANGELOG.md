@@ -5,6 +5,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-04
+
+### Added
+
+- `discover`, `discover-max-depth` and `discover-exclude` inputs and a `projects` output: every project found below `working-directory` (directory relative to the workspace root, languages and the full primary result) as JSON for a `fromJSON` matrix. The job summary lists the discovered projects.
+- Versions from release tooling for every language: `.release-please-manifest.json` (nearest manifest, keyed by package path), bump-my-version / bump2version `current_version` and commitizen `version`. They rank after the manifest's own version and a `VERSION` file, before guessing from source code.
+- `tag-pattern` input: custom `git describe --match` globs for the git-tag fallback (`release-*`, `api@v*`); the literal prefix is stripped.
+- Go: a package-level `var version = "X.Y…"` in `main.go` / `cmd/*/main.go` (e.g. fzf) is read when no `version*.go` file declares one.
+- Node: when nothing declares the package manager version, pnpm and Yarn report the major version implied by the lockfile format (`pnpm-lock.yaml` `lockfileVersion` → `6`/`7`/`8`/`>=9`, Yarn v1 lockfile → `1`, Berry lockfile → `>=2`).
+- Debug logging: with step debug logging enabled, every resolved value is logged with its source and the sources that were tried.
+- Real-world corpus test (`bun run test:corpus`, `Corpus` workflow: weekly, on demand and on pull requests touching `src/`): pinned commits of 15 popular Node, Python and Go repositories compared against a reviewed snapshot.
+
+### Changed
+
+- All version chains go through one shared source layer, and file reads are cached per run (one read per path even when `discover` inspects many directories).
+- The e2e scenarios live in `__tests__/e2e-scenarios.json`, shared by `bun run test:e2e` (input defaults read from `action.yml`) and the CI matrix.
+- Bumped dev dependencies: rollup 4.63 → 4.67, vitest 5.0 → 5.1 (supersedes Dependabot #10).
+
+### Fixed
+
+- Repository-controlled values (names, versions, paths) are HTML-escaped in the job summary.
+- README: the Docker example no longer produces an invalid image tag for versions with build metadata (`1.2.3+45`).
+
 ## [1.1.0] - 2026-11-04
 
 ### Added
@@ -50,7 +73,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
-[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/emilgruzalski/detect-project/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/emilgruzalski/detect-project/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/emilgruzalski/detect-project/releases/tag/v1.0.0

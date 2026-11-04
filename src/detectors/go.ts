@@ -1,10 +1,10 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext } from '../types.js'
-import { firstExisting, isFile, readText, relPosix, walkFiles } from '../utils/fs.js'
+import { firstExisting, isFile, listDir, readText, relPosix, walkFiles } from '../utils/fs.js'
 import { releaseToolSources } from '../utils/release-tools.js'
 import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, type RuntimeHit } from '../utils/runtime.js'
 import { gitTagSource, resolveFirst, type SourceHit, versionFileSource } from '../utils/sources.js'
-import { extractAssignedVersion } from '../utils/version.js'
+import { cleanVersion, extractAssignedVersion, looksLikeReleaseVersion } from '../utils/version.js'
 
 /** Conventional locations of a `Version` constant, checked before falling back to a directory walk. */
 const VERSION_GO_CANDIDATES = [
@@ -61,8 +61,20 @@ async function versionFromGoSource(dir: string): Promise<SourceHit | undefined> 
     const hit = await tryFile(file)
     if (hit) return hit
   }
+
+  // CLIs often keep the version next to main (fzf: `var version = "0.74"` in main.go). main.go holds
+  // all kinds of strings, so only a package-level one-line `var|const version = "X.Y…"` counts there.
+  const mains = ['main.go', ...((await listDir(path.join(dir, 'cmd'))) ?? []).filter((e) => e.isDirectory()).map((e) => `cmd/${e.name}/main.go`).sort()]
+  for (const file of mains) {
+    const source = await readText(path.join(dir, file))
+    const value = source ? cleanVersion(MAIN_GO_VERSION.exec(source)?.[1]) : ''
+    if (value && looksLikeReleaseVersion(value)) return { value, source: file }
+  }
   return undefined
 }
+
+/** Package-level `var version = "…"` / `const Version string = "…"` on a single line (no indentation). */
+const MAIN_GO_VERSION = /^(?:var|const)\s+[Vv]ersion(?:\s+string)?\s*=\s*"([^"\n]+)"/m
 
 /**
  * Go tags nested modules with their directory: the module in `tools/` is released as `tools/v1.2.3`.

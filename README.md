@@ -17,6 +17,8 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
     working-directory: .        # optional, default "."
     language: auto              # optional: auto | node | python | go
     language-priority: ''       # optional, e.g. "python,node" for mixed repositories
+    tag-pattern: ''             # optional, e.g. "release-*" for the git-tag version fallback
+    discover: false             # optional: also report every project below working-directory
     fail-on-unknown: false      # optional: fail when nothing is detected
 
 - run: |
@@ -35,7 +37,11 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 | `working-directory` | `.` | Directory to inspect, relative to the workspace root. The step **fails** when it does not exist or is not a directory. |
 | `language` | `auto` | Force a language (`node`, `python`, `go`) instead of auto-detecting. |
 | `language-priority` | | Languages to prefer as primary when several are detected, comma separated (`python,node`). Unlisted languages follow in the default order. |
-| `fail-on-unknown` | `false` | Fail the step when no supported project is found. |
+| `tag-pattern` | | `git describe --match` glob(s) for the [git-tag fallback](#git-tags), comma or newline separated (`release-*`, `api@v*`). Replaces the default `vX.Y…` / `X.Y…` patterns; the literal part before the first wildcard is stripped from the tag. |
+| `discover` | `false` | Also inspect the subdirectories of `working-directory` and report every project found in the `projects` output (see [Discovering projects](#discovering-projects)). |
+| `discover-max-depth` | `3` | How many directory levels below `working-directory` `discover` inspects (`0`–`10`). |
+| `discover-exclude` | | Globs relative to `working-directory` that `discover` skips together with everything below them, comma or newline separated (`examples, legacy/**`). |
+| `fail-on-unknown` | `false` | Fail the step when no supported project is found (with `discover`: neither in `working-directory` nor below it). |
 
 ### Outputs
 
@@ -44,13 +50,13 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 | `language` | `node` | `node`, `python`, `go` or `unknown`. |
 | `name` | `my-app` | `package.json` name, pyproject name or Go module path. |
 | `version` | `1.4.2-rc.1` | Application version. Empty when it cannot be determined. |
-| `version-source` | `package.json` | Where the version came from (`pyproject.toml:project.version`, `VERSION`, `internal/version/version.go`, `git-tag`, …). |
+| `version-source` | `package.json` | Where the version came from (`pyproject.toml:project.version`, `VERSION`, `internal/version/version.go`, `../../.release-please-manifest.json:apps/api`, `git-tag`, …). |
 | `version-major` / `version-minor` / `version-patch` | `1` / `4` / `2` | Version components; minor and patch are `0` when absent (`1.4` → `1`/`4`/`0`). Empty without a version. |
 | `version-prerelease` | `rc.1` | Pre-release part (`rc.1`, `beta2`, PEP 440 `dev3`); empty for final releases, including PEP 440 post-releases. |
 | `version-build` | `45` | Build metadata after `+` (`1.2.3+45`, PEP 440 local version). |
 | `is-prerelease` | `true` | `true` when `version-prerelease` is set, otherwise `false`. |
 | `package-manager` | `pnpm` | See the table below. |
-| `package-manager-version` | `9.12.0` | Only when declared somewhere (see below), otherwise empty. |
+| `package-manager-version` | `9.12.0` | When declared somewhere (see below). Otherwise, for pnpm and Yarn, the major version implied by the lockfile format (`>=9`, `8`, `1`, `>=2`, …); empty when unknown. |
 | `language-version` | `>=20` | Runtime version or constraint (`.nvmrc`, `requires-python`, `go` directive, …), passed through as written. |
 | `language-version-source` | `package.json:engines.node` | Where `language-version` came from, relative to `working-directory` (`.nvmrc`, `../../.python-version`, `go.mod:go`, …). |
 | `language-version-file` | `apps/api/.nvmrc` | The file `language-version` was read from, relative to the workspace root, **only** when the official setup action reads the same value from it (see [below](#passing-the-runtime-to-setup-actions)); otherwise empty. |
@@ -60,6 +66,7 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 | `install-command` | `pnpm install --frozen-lockfile` | Dependency install command for the detected package manager, meant to run in `workspace-root` (table below). Empty when there is no safe default. |
 | `cache-dependency-path` | `pnpm-lock.yaml` | Dependency file for `cache-dependency-path` of the setup actions, relative to the workspace root: the lockfile, or for pip `requirements.txt` / the manifest. Empty when there is none. |
 | `languages` | `[{…}, {…}]` | JSON array with the full result for **every** language found (same fields as the outputs, camelCase) — useful for mixed repos. |
+| `projects` | `[{"directory":"apps/web",…}]` | With `discover`: one entry per project directory found — `directory` (relative to the workspace root, usable as `working-directory`), `languages` and every field of its primary result (camelCase). `[]` otherwise. |
 
 Leading `v` is stripped from versions (`v1.2.3` → `1.2.3`); constraints such as `>=3.11` or `^9` are passed through unchanged.
 
@@ -69,9 +76,9 @@ Leading `v` is stripped from versions (`v1.2.3` → `1.2.3`); constraints such a
 
 | What | Sources, in priority order |
 | --- | --- |
-| Version | `version` field |
+| Version | `version` field → [release tooling](#release-tooling) |
 | Package manager | `packageManager` field (corepack) → `devEngines.packageManager` → lockfile (`bun.lock`/`bun.lockb`, `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `npm-shrinkwrap.json`) → the same from the workspace root (`pnpm-workspace.yaml` alone means pnpm) → `volta`/`engines` entry → `npm` |
-| Package manager version | `packageManager` field → `devEngines` → `volta.<pm>` → `.yarnrc.yml` `yarnPath` (Yarn Berry) → `engines.<pm>` (project first, then workspace root) |
+| Package manager version | `packageManager` field → `devEngines` → `volta.<pm>` → `.yarnrc.yml` `yarnPath` (Yarn Berry) → `engines.<pm>` (project first, then workspace root) → lockfile format, as a major version: `pnpm-lock.yaml` `lockfileVersion` 5.3 → `6`, 5.4 → `7`, 6.x → `8`, 9.x → `>=9` (pnpm 9 and 10); Yarn v1 lockfile → `1`, Berry lockfile (`__metadata`) → `>=2` |
 | Runtime version | `.nvmrc` → `.node-version` → `volta.node` → `devEngines.runtime` → `engines.node` → `.tool-versions` → `mise.toml` |
 | Install command | `npm ci` / `npm install`, `pnpm install --frozen-lockfile`, `yarn install --immutable` (Berry) or `--frozen-lockfile` (Classic), `bun install --frozen-lockfile` — the frozen form only when the lockfile belongs to the detected package manager |
 
@@ -79,7 +86,7 @@ Leading `v` is stripped from versions (`v1.2.3` → `1.2.3`); constraints such a
 
 | What | Sources, in priority order |
 | --- | --- |
-| Version | `[project] version` → `[tool.poetry] version` → dynamic version (`[tool.setuptools.dynamic]` `attr:`/`file:`, `[tool.hatch.version] path`, `[tool.pdm.version]`, flit module) → `setup.cfg` `[metadata] version` (incl. `attr:`/`file:`) → `setup.py` `version=` → `VERSION` file → `__version__` in the project's own package (see below) → latest git tag (only for SCM-versioned projects) |
+| Version | `[project] version` → `[tool.poetry] version` → dynamic version (`[tool.setuptools.dynamic]` `attr:`/`file:`, `[tool.hatch.version] path`, `[tool.pdm.version]`, flit module) → `setup.cfg` `[metadata] version` (incl. `attr:`/`file:`) → `setup.py` `version=` → `VERSION` file → [release tooling](#release-tooling) → `__version__` in the project's own package (see below) → latest git tag (only for SCM-versioned projects) |
 | Package manager | lockfile (`uv.lock`, `poetry.lock`, `pdm.lock`, `Pipfile.lock`) → membership of a uv workspace → `[tool.uv]` / `[tool.poetry]` / `[tool.pdm]` / `[tool.hatch.envs]` → build backend (`poetry.core…` → poetry, `pdm…` → pdm) → `Pipfile` → `pip` |
 | Lockfile | the above, then PEP 751 `pylock.toml` / `pylock.<name>.toml` (tool-agnostic, so it does not decide the package manager); workspace members get the root `uv.lock` |
 | Package manager version | `poetry.lock` header (`@generated by Poetry X.Y.Z`) → `[tool.poetry] requires-poetry` → `[tool.uv] required-version` (project, then workspace root) |
@@ -93,15 +100,27 @@ The `__version__` scan only looks at the project's own package: the module named
 | What | Sources, in priority order |
 | --- | --- |
 | Name | `module` directive |
-| Version | `VERSION` file → `Version = "…"` / `Version string = "…"` constant in `version.go`, `internal/version/version.go`, `cmd/**/version.go`, … (placeholders like `"dev"` are ignored) → latest git tag |
+| Version | `VERSION` file → [release tooling](#release-tooling) → `Version = "…"` / `Version string = "…"` constant in `version.go`, `internal/version/version.go`, `cmd/**/version.go`, … (placeholders like `"dev"` are ignored) → a package-level one-line `var version = "X.Y…"` in `main.go` / `cmd/*/main.go` → latest git tag |
 | Package manager | `go` (modules), `dep` for `Gopkg.toml` |
 | Package manager version | `toolchain` directive |
 | Runtime version | `go` directive → `toolchain` → `.tool-versions` → `mise.toml` |
 | Install command | `go mod download` (`dep ensure` for dep; none for a bare `go.work`) |
 
+### Release tooling
+
+Versions recorded by release tools count for every language. They rank after the manifest's own version (and a `VERSION` file) and before guessing from source code:
+
+| Tool | Read from |
+| --- | --- |
+| [release-please](https://github.com/googleapis/release-please) | `.release-please-manifest.json` in the project directory or the nearest parent (up to the repository root), entry keyed by the project's path (`.` for the root, `packages/api`, …) |
+| [bump-my-version](https://github.com/callowayproject/bump-my-version) / bump2version | `current_version` in `.bumpversion.toml`, `.bumpversion.cfg`, `pyproject.toml` `[tool.bumpversion]` or `setup.cfg` `[bumpversion]` (first found) |
+| [commitizen](https://commitizen-tools.github.io/commitizen/) | `version` in the first commitizen configuration (`pyproject.toml` `[tool.commitizen]`, `.cz.toml`, `.cz.json`, `cz.json`, `.cz.yaml`, `cz.yaml`, `cz.toml`); ignored when `version_provider` is set to anything but `commitizen` |
+
 ### Git tags
 
 The git-tag fallback uses `git describe --tags --abbrev=0` restricted to release-shaped tags (`v1.2.3`, `1.2.3`, at least `MAJOR.MINOR`), so tags such as `nightly`, `latest` or a floating major tag (`v1`) are never reported as the version. A Go module in a subdirectory uses Go's tag convention — the module in `tools/` is versioned by `tools/v1.2.3` tags — and the prefix is stripped. With `actions/checkout` you need `fetch-depth: 0` (or `fetch-tags: true`) for it to see any tags.
+
+Other tag schemes are selected with `tag-pattern` — e.g. `release-*` (tags `release-1.4.0`) or `api@v*` (per-package tags `api@v2.0.1` in a monorepo). The patterns replace the defaults (including the Go module prefix), the literal part before the first wildcard is stripped, and the rest must still look like a release version.
 
 ### Monorepos and parent directories
 
@@ -115,6 +134,61 @@ A nested project that is *not* a workspace member keeps its own package manager 
 ### Mixed repositories
 
 If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
+
+## Discovering projects
+
+With `discover: true` the action also inspects every directory up to `discover-max-depth` levels below `working-directory` and reports each one that contains a project in the `projects` output — a JSON array ready for a matrix. The regular outputs keep describing `working-directory` itself. Hidden directories (`.git`, `.github`, `.venv`, …), dependency and build output (`node_modules`, `vendor`, `dist`, `build`, `target`, `venv`, `__pycache__`, …) and test data (`testdata`, `fixtures`) are never descended into; add more with `discover-exclude`. `language` and `language-priority` apply to every discovered directory.
+
+```yaml
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.project.outputs.projects }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: project
+        uses: emilgruzalski/detect-project@v1
+        with:
+          working-directory: apps        # every app below apps/, but not the monorepo root itself
+          discover: true
+          discover-exclude: legacy
+
+  build:
+    needs: detect
+    if: needs.detect.outputs.projects != '[]'
+    name: ${{ matrix.project.directory }} (${{ matrix.project.language }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.detect.outputs.projects) }}
+    steps:
+      - uses: actions/checkout@v7
+      - if: matrix.project.language == 'node'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ${{ matrix.project.languageVersionFile }}
+      - name: Install dependencies
+        working-directory: ${{ matrix.project.workspaceRoot }}
+        env:
+          INSTALL_COMMAND: ${{ matrix.project.installCommand }}
+        run: $INSTALL_COMMAND
+      - name: Test
+        working-directory: ${{ matrix.project.directory }}
+        run: echo "testing ${{ matrix.project.name }} ${{ matrix.project.version }}"
+```
+
+A directory that is itself a project — e.g. a monorepo root with a `package.json` — is reported as `.`; start from a subdirectory (as above) when the root should not get a job of its own. A matrix is limited to 256 jobs.
+
+## Troubleshooting
+
+With [step debug logging](https://docs.github.com/actions/monitoring-and-troubleshooting-workflows/troubleshooting-workflows/enabling-debug-logging) enabled (`ACTIONS_STEP_DEBUG` = `true`, or *Re-run jobs → Enable debug logging*), the log shows for every resolved value where it came from and which sources had nothing, e.g.
+
+```
+[apps/api] node version: "1.4.0" from .release-please-manifest.json (nothing in: package.json:version)
+[apps/api] node runtime: "22" from ../../.nvmrc
+```
 
 ## Passing the runtime to setup actions
 
@@ -168,7 +242,8 @@ For sources such as `setup.cfg`, `runtime.txt` or a mise file for Python/Go it i
     MAJOR_MINOR: ${{ steps.project.outputs.version-major }}.${{ steps.project.outputs.version-minor }}
     PRERELEASE: ${{ steps.project.outputs.is-prerelease }}
   run: |
-    tags=(-t "my-app:$VERSION")
+    # Docker tags allow [A-Za-z0-9_.-] only: build metadata such as 1.2.3+45 becomes 1.2.3-45.
+    tags=(-t "my-app:${VERSION//+/-}")
     if [ "$PRERELEASE" = false ] && [ "$MAJOR_MINOR" != . ]; then tags+=(-t "my-app:$MAJOR_MINOR"); fi
     docker build "${tags[@]}" .
 ```
@@ -185,10 +260,13 @@ bun run typecheck
 bun run test          # vitest unit tests
 bun run package       # bundles src/index.ts + dependencies into dist/index.js (rollup, ESM)
 bun run test:e2e      # e2e tests that run the bundled dist/index.js like the runner does
+bun run test:corpus   # real-world corpus: pinned commits of popular repos vs. a snapshot (needs network)
 bun run local-action  # runs the action locally via @github/local-action using inputs from .env
 ```
 
 `dist/` is committed (GitHub runs the action straight from it, no dependency install on the runner); CI fails if it is out of date, so run `bun run package` before committing source changes. To try the action locally, copy `.env.example` to `.env` and run `bun run local-action`.
+
+The e2e scenarios live in `__tests__/e2e-scenarios.json`; both `bun run test:e2e` and the CI `e2e` matrix read them, so a scenario is added in one place. The corpus (`__tests__/corpus/corpus.json`) runs weekly, on demand and on pull requests that touch `src/`; after a deliberate behaviour change, review the diff and update the snapshot with `bun run test:corpus -u`.
 
 Source layout:
 
@@ -197,10 +275,15 @@ src/
   index.ts             # runtime entry: calls run() and reports failures
   main.ts              # run(): inputs → detection → outputs + job summary
   detect.ts            # runs the detectors, picks the primary language
+  discover.ts          # walks subdirectories for the discover input
   detectors/
     node.ts python.ts go.ts
-  utils/               # fs helpers, TOML/INI parsing, version normalisation, runtime files, workspace globs
-__tests__/             # vitest suites (e2e.test.ts runs dist/) + fixtures used by the e2e tests and the CI `e2e` job
+  utils/
+    sources.ts         # resolveFirst(): ordered, named value sources with debug logging
+    release-tools.ts   # release-please / bump-my-version / commitizen versions
+    runtime.ts         # runtime version files, walking up to the repository root
+    fs.ts ...          # cached fs helpers, TOML/INI parsing, version handling, workspace globs
+__tests__/             # vitest suites (e2e.test.ts runs dist/, corpus.test.ts clones real repos) + fixtures
 ```
 
 Adding a language means implementing the `Detector` interface from `src/types.ts` and registering it in `src/detectors/index.ts`.

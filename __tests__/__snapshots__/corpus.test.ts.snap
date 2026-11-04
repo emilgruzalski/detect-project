@@ -1,0 +1,512 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`charmbracelet/bubbletea > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "go.sum",
+      "installCommand": "go mod download",
+      "language": "go",
+      "languageVersion": "1.26.0",
+      "languageVersionFile": "go.mod",
+      "languageVersionSource": "go.mod:go",
+      "lockfile": "go.sum",
+      "manifest": "go.mod",
+      "name": "charm.land/bubbletea/v2",
+      "packageManager": "go",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`cli/cli > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "go.sum",
+      "installCommand": "go mod download",
+      "language": "go",
+      "languageVersion": "1.27.0",
+      "languageVersionFile": "go.mod",
+      "languageVersionSource": "go.mod:go",
+      "lockfile": "go.sum",
+      "manifest": "go.mod",
+      "name": "github.com/cli/cli/v2",
+      "packageManager": "go",
+      "packageManagerVersion": "1.27.3",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`encode/httpx > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "requirements.txt",
+      "installCommand": "pip install -r requirements.txt",
+      "language": "python",
+      "languageVersion": ">=3.9",
+      "languageVersionFile": "pyproject.toml",
+      "languageVersionSource": "pyproject.toml:project.requires-python",
+      "lockfile": "",
+      "manifest": "pyproject.toml",
+      "name": "httpx",
+      "packageManager": "pip",
+      "packageManagerVersion": "",
+      "version": "0.28.1",
+      "versionSource": "httpx/__version__.py",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`expressjs/express > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "npm install",
+      "language": "node",
+      "languageVersion": ">= 18",
+      "languageVersionFile": "package.json",
+      "languageVersionSource": "package.json:engines.node",
+      "lockfile": "",
+      "manifest": "package.json",
+      "name": "express",
+      "packageManager": "npm",
+      "packageManagerVersion": "",
+      "version": "5.3.0",
+      "versionSource": "package.json",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`fastapi/fastapi > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "uv.lock",
+      "installCommand": "uv sync --locked",
+      "language": "python",
+      "languageVersion": "3.11",
+      "languageVersionFile": ".python-version",
+      "languageVersionSource": ".python-version",
+      "lockfile": "uv.lock",
+      "manifest": "pyproject.toml",
+      "name": "fastapi",
+      "packageManager": "uv",
+      "packageManagerVersion": "",
+      "version": "0.162.0",
+      "versionSource": "fastapi/__init__.py",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`go-chi/chi > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "go mod download",
+      "language": "go",
+      "languageVersion": "1.24",
+      "languageVersionFile": "go.mod",
+      "languageVersionSource": "go.mod:go",
+      "lockfile": "",
+      "manifest": "go.mod",
+      "name": "github.com/go-chi/chi/v5",
+      "packageManager": "go",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`junegunn/fzf > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "go.sum",
+      "installCommand": "go mod download",
+      "language": "go",
+      "languageVersion": "1.23.0",
+      "languageVersionFile": "go.mod",
+      "languageVersionSource": "go.mod:go",
+      "lockfile": "go.sum",
+      "manifest": "go.mod",
+      "name": "github.com/junegunn/fzf",
+      "packageManager": "go",
+      "packageManagerVersion": "",
+      "version": "0.74",
+      "versionSource": "main.go",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`pallets/flask > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "uv.lock",
+      "installCommand": "uv sync --locked",
+      "language": "python",
+      "languageVersion": ">=3.11",
+      "languageVersionFile": "pyproject.toml",
+      "languageVersionSource": "pyproject.toml:project.requires-python",
+      "lockfile": "uv.lock",
+      "manifest": "pyproject.toml",
+      "name": "Flask",
+      "packageManager": "uv",
+      "packageManagerVersion": "",
+      "version": "3.2.0.dev",
+      "versionSource": "pyproject.toml:project.version",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`prettier/prettier > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "yarn.lock",
+      "installCommand": "yarn install --immutable",
+      "language": "node",
+      "languageVersion": ">=22",
+      "languageVersionFile": "package.json",
+      "languageVersionSource": "package.json:engines.node",
+      "lockfile": "yarn.lock",
+      "manifest": "package.json",
+      "name": "prettier",
+      "packageManager": "yarn",
+      "packageManagerVersion": "4.18.1",
+      "version": "3.10.0-dev",
+      "versionSource": "package.json",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`psf/requests > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "pyproject.toml",
+      "installCommand": "pip install .",
+      "language": "python",
+      "languageVersion": ">=3.10",
+      "languageVersionFile": "pyproject.toml",
+      "languageVersionSource": "pyproject.toml:project.requires-python",
+      "lockfile": "",
+      "manifest": "pyproject.toml",
+      "name": "requests",
+      "packageManager": "pip",
+      "packageManagerVersion": "",
+      "version": "2.34.2",
+      "versionSource": "pyproject.toml:tool.setuptools.dynamic (requests.__version__.__version__)",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`pydantic/pydantic-ai > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "uv.lock",
+      "installCommand": "uv sync --locked",
+      "language": "python",
+      "languageVersion": ">=3.11",
+      "languageVersionFile": "pyproject.toml",
+      "languageVersionSource": "pyproject.toml:project.requires-python",
+      "lockfile": "uv.lock",
+      "manifest": "pyproject.toml",
+      "name": "pydantic-ai",
+      "packageManager": "uv",
+      "packageManagerVersion": ">=0.9.25",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: python",
+    "clai: python",
+    "examples: python",
+    "pydantic_ai_slim: python",
+    "pydantic_evals: python",
+    "pydantic_graph: python",
+  ],
+}
+`;
+
+exports[`python-poetry/poetry > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "poetry.lock",
+      "installCommand": "poetry install",
+      "language": "python",
+      "languageVersion": ">=3.11",
+      "languageVersionFile": "pyproject.toml",
+      "languageVersionSource": "pyproject.toml:project.requires-python",
+      "lockfile": "poetry.lock",
+      "manifest": "pyproject.toml",
+      "name": "poetry",
+      "packageManager": "poetry",
+      "packageManagerVersion": "2.5.1",
+      "version": "2.5.1",
+      "versionSource": "pyproject.toml:project.version",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`spf13/cobra > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "go.sum",
+      "installCommand": "go mod download",
+      "language": "go",
+      "languageVersion": "1.15",
+      "languageVersionFile": "go.mod",
+      "languageVersionSource": "go.mod:go",
+      "lockfile": "go.sum",
+      "manifest": "go.mod",
+      "name": "github.com/spf13/cobra",
+      "packageManager": "go",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`vitejs/vite > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "language": "node",
+      "languageVersion": "^20.19.0 || >=22.12.0",
+      "languageVersionFile": "package.json",
+      "languageVersionSource": "package.json:engines.node",
+      "lockfile": "pnpm-lock.yaml",
+      "manifest": "package.json",
+      "name": "@vitejs/vite-monorepo",
+      "packageManager": "pnpm",
+      "packageManagerVersion": "12.16.1",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 2)": [
+    ".: node",
+    "docs: node",
+    "playground: node",
+    "packages/create-vite: node",
+    "packages/plugin-legacy: node",
+    "packages/vite: node",
+    "playground/alias: node",
+    "playground/assets: node",
+    "playground/assets-sanitize: node",
+    "playground/backend-integration: node",
+    "playground/base: node",
+    "playground/base-conflict: node",
+    "playground/build-old: node",
+    "playground/chunk-importmap: node",
+    "playground/cli: node",
+    "playground/cli-module: node",
+    "playground/client-reload: node",
+    "playground/csp: node",
+    "playground/css: node",
+    "playground/css-codesplit: node",
+    "playground/css-codesplit-cjs: node",
+    "playground/css-dynamic-import: node",
+    "playground/css-lightningcss: node",
+    "playground/css-lightningcss-proxy: node",
+    "playground/css-lightningcss-root: node",
+    "playground/css-no-codesplit: node",
+    "playground/css-sourcemap: node",
+    "playground/data-uri: node",
+    "playground/define: node",
+    "playground/devtools: node",
+    "playground/dynamic-import: node",
+    "playground/dynamic-import-inline: node",
+    "playground/env-nested: node",
+    "playground/environment-react-ssr: node",
+    "playground/extensions: node",
+    "playground/external: node",
+    "playground/forward-console: node",
+    "playground/fs-serve: node",
+    "playground/glob-import: node",
+    "playground/hmr: node",
+    "playground/hmr-full-bundle-mode: node",
+    "playground/hmr-ssr: node",
+    "playground/html: node",
+    "playground/import-attribute: node",
+    "playground/js-sourcemap: node",
+    "playground/json: node",
+    "playground/lazy-compilation: node",
+    "playground/legacy: node",
+    "playground/lib: node",
+    "playground/minify: node",
+    "playground/module-graph: node",
+    "playground/multiple-entrypoints: node",
+    "playground/nested-deps: node",
+    "playground/object-hooks: node",
+    "playground/optimize-deps: node",
+    "playground/optimize-deps-no-discovery: node",
+    "playground/optimize-missing-deps: node",
+    "playground/preload: node",
+    "playground/preserve-symlinks: node",
+    "playground/proxy-bypass: node",
+    "playground/proxy-hmr: node",
+    "playground/resolve: node",
+    "playground/resolve-linked: node",
+    "playground/resolve-tsconfig-paths: node",
+    "playground/ssr: node",
+    "playground/ssr-alias: node",
+    "playground/ssr-conditions: node",
+    "playground/ssr-deps: node",
+    "playground/ssr-html: node",
+    "playground/ssr-noexternal: node",
+    "playground/ssr-pug: node",
+    "playground/ssr-resolve: node",
+    "playground/ssr-wasm: node",
+    "playground/ssr-webworker: node",
+    "playground/tailwind: node",
+    "playground/tailwind-sourcemap: node",
+    "playground/tailwind-v3: node",
+    "playground/transform-plugin: node",
+    "playground/tsconfig-json: node",
+    "playground/tsconfig-json-load-error: node",
+    "playground/wasm: node",
+    "playground/worker: node",
+  ],
+  "packages/create-vite": [
+    {
+      "cacheDependencyPath": "../../pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "language": "node",
+      "languageVersion": "^20.19.0 || >=22.12.0",
+      "languageVersionFile": "package.json",
+      "languageVersionSource": "package.json:engines.node",
+      "lockfile": "../../pnpm-lock.yaml",
+      "manifest": "package.json",
+      "name": "create-vite",
+      "packageManager": "pnpm",
+      "packageManagerVersion": "12.16.1",
+      "version": "9.3.3",
+      "versionSource": "package.json",
+      "workspaceRoot": "../..",
+    },
+  ],
+  "packages/vite": [
+    {
+      "cacheDependencyPath": "../../pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "language": "node",
+      "languageVersion": "^20.19.0 || >=22.12.0",
+      "languageVersionFile": "package.json",
+      "languageVersionSource": "package.json:engines.node",
+      "lockfile": "../../pnpm-lock.yaml",
+      "manifest": "package.json",
+      "name": "vite",
+      "packageManager": "pnpm",
+      "packageManagerVersion": "12.16.1",
+      "version": "8.3.5",
+      "versionSource": "package.json",
+      "workspaceRoot": "../..",
+    },
+  ],
+}
+`;
+
+exports[`vuejs/core > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "language": "node",
+      "languageVersion": "lts/*",
+      "languageVersionFile": ".node-version",
+      "languageVersionSource": ".node-version",
+      "lockfile": "pnpm-lock.yaml",
+      "manifest": "package.json",
+      "name": "",
+      "packageManager": "pnpm",
+      "packageManagerVersion": "12.11.2",
+      "version": "3.5.44",
+      "versionSource": "package.json",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 2)": [
+    ".: node",
+    "packages/compiler-core: node",
+    "packages/compiler-dom: node",
+    "packages/compiler-sfc: node",
+    "packages/compiler-ssr: node",
+    "packages/reactivity: node",
+    "packages/runtime-core: node",
+    "packages/runtime-dom: node",
+    "packages/runtime-test: node",
+    "packages/server-renderer: node",
+    "packages/shared: node",
+    "packages/vue: node",
+    "packages/vue-compat: node",
+    "packages-private/dts-built-test: node",
+    "packages-private/dts-test: node",
+    "packages-private/sfc-playground: node",
+    "packages-private/template-explorer: node",
+    "packages-private/vite-debug: node",
+  ],
+  "packages/vue": [
+    {
+      "cacheDependencyPath": "../../pnpm-lock.yaml",
+      "installCommand": "pnpm install --frozen-lockfile",
+      "language": "node",
+      "languageVersion": "lts/*",
+      "languageVersionFile": "../../.node-version",
+      "languageVersionSource": "../../.node-version",
+      "lockfile": "../../pnpm-lock.yaml",
+      "manifest": "package.json",
+      "name": "vue",
+      "packageManager": "pnpm",
+      "packageManagerVersion": "12.11.2",
+      "version": "3.5.44",
+      "versionSource": "package.json",
+      "workspaceRoot": "../..",
+    },
+  ],
+}
+`;

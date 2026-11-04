@@ -31426,8 +31426,20 @@ async function versionFromGoSource(dir) {
     const hit = await tryFile(file);
     if (hit) return hit
   }
+
+  // CLIs often keep the version next to main (fzf: `var version = "0.74"` in main.go). main.go holds
+  // all kinds of strings, so only a package-level one-line `var|const version = "X.Y…"` counts there.
+  const mains = ['main.go', ...(await _asyncNullishCoalesce$3((await listDir(path$1.join(dir, 'cmd'))), async () => ( []))).filter((e) => e.isDirectory()).map((e) => `cmd/${e.name}/main.go`).sort()];
+  for (const file of mains) {
+    const source = await readText(path$1.join(dir, file));
+    const value = source ? cleanVersion(_optionalChain$4([MAIN_GO_VERSION, 'access', _ => _.exec, 'call', _2 => _2(source), 'optionalAccess', _3 => _3[1]])) : '';
+    if (value && looksLikeReleaseVersion(value)) return { value, source: file }
+  }
   return undefined
 }
+
+/** Package-level `var version = "…"` / `const Version string = "…"` on a single line (no indentation). */
+const MAIN_GO_VERSION = /^(?:var|const)\s+[Vv]ersion(?:\s+string)?\s*=\s*"([^"\n]+)"/m;
 
 /**
  * Go tags nested modules with their directory: the module in `tools/` is released as `tools/v1.2.3`.
@@ -31474,8 +31486,8 @@ const goDetector = {
     return {
       language: 'go',
       name: goMod.module,
-      version: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _ => _.value]), () => ( '')),
-      versionSource: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _2 => _2.source]), () => ( '')),
+      version: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _4 => _4.value]), () => ( '')),
+      versionSource: _nullishCoalesce$6(_optionalChain$4([version, 'optionalAccess', _5 => _5.source]), () => ( '')),
       packageManager: isDep ? 'dep' : 'go',
       packageManagerVersion: goMod.toolchain,
       ...runtimeFields(dir, runtime),

@@ -1,0 +1,38 @@
+# Real-world corpus: runs the detectors against pinned commits of popular repositories
+# (__tests__/corpus/corpus.json) and compares the results with the committed snapshot.
+# Catches heuristic regressions that synthetic fixtures miss. Needs network access, so it is
+# not part of the regular CI job; update the snapshot locally with `bun run test:corpus -u`.
+name: Corpus
+
+on:
+  schedule:
+    - cron: '17 5 * * 1' # Mondays, 05:17 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/**'
+      - '__tests__/corpus.test.ts'
+      - '__tests__/corpus/**'
+      - '__tests__/__snapshots__/corpus.test.ts.snap'
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    name: Real-world corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      # CI=true makes vitest fail on missing or changed snapshots instead of writing them.
+      - run: bun run test:corpus
+        env:
+          CORPUS_DIR: ${{ runner.temp }}/corpus

@@ -94,6 +94,36 @@ describe('goDetector', () => {
     const dir = await project({ 'go.mod': 'module x\n', 'version.go': 'package main\n\nvar Version string = "dev"\n' })
     expect((await goDetector.detect({ dir }))?.version).toBe('')
   })
+
+  // Found by the corpus test: fzf keeps `var version = "0.74"` in its root main.go.
+  it.each([
+    ['main.go', 'package main\n\nvar version = "0.74"\nvar revision = "devel"\n', '0.74'],
+    ['main.go', 'package main\n\nconst Version string = "v2.1.0"\n', '2.1.0'],
+    ['cmd/tool/main.go', 'package main\n\nvar version = "1.3.0"\n', '1.3.0'],
+  ])('reads a package-level version from %s', async (file, source, version) => {
+    const dir = await project({ 'go.mod': 'module x\n', [file]: source })
+    expect(await goDetector.detect({ dir })).toMatchObject({ version, versionSource: file })
+  })
+
+  it.each([
+    ['a placeholder', 'var version = "devel"\n'],
+    ['a single number', 'const version = "2"\n'],
+    ['an assignment inside a function', 'func main() {\n\tversion = "1.2.3"\n}\n'],
+    ['an indented var block', 'var (\n\tversion = "1.2.3"\n)\n'],
+    ['another identifier', 'var apiVersion = "1.2"\n'],
+  ])('ignores %s in main.go', async (_, body) => {
+    const dir = await project({ 'go.mod': 'module x\n', 'main.go': `package main\n\n${body}` })
+    expect((await goDetector.detect({ dir }))?.version).toBe('')
+  })
+
+  it('prefers version*.go files over main.go', async () => {
+    const dir = await project({
+      'go.mod': 'module x\n',
+      'main.go': 'package main\n\nvar version = "0.1.0"\n',
+      'internal/version/version.go': 'package version\n\nconst Version = "2.0.0"\n',
+    })
+    expect((await goDetector.detect({ dir }))?.version).toBe('2.0.0')
+  })
 })
 
 describe('goDetector: git tags', () => {
