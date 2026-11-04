@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-04
+
 ### Added
 
 - Outputs `language-version-source` (where the runtime version came from) and `language-version-file` (the file to pass to `node-version-file` / `python-version-file` / `go-version-file`; only set when the official setup action reads the same value from it).
@@ -48,5 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/emilgruzalski/detect-project/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/emilgruzalski/detect-project/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/emilgruzalski/detect-project/releases/tag/v1.0.0
