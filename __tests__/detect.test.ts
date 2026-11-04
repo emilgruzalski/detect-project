@@ -116,8 +116,27 @@ describe('detectProject', () => {
 
 describe('orderDetectors', () => {
   it('puts preferred languages first and keeps the rest in registry order', () => {
-    expect(orderDetectors(['go']).map((d) => d.language)).toEqual(['go', 'node', 'python'])
-    expect(orderDetectors(['python', 'go']).map((d) => d.language)).toEqual(['python', 'go', 'node'])
-    expect(orderDetectors().map((d) => d.language)).toEqual(['node', 'python', 'go'])
+    expect(orderDetectors(['go']).map((d) => d.language)).toEqual(['go', 'node', 'python', 'rust', 'dart'])
+    expect(orderDetectors(['dart', 'go']).map((d) => d.language)).toEqual(['dart', 'go', 'node', 'python', 'rust'])
+    expect(orderDetectors().map((d) => d.language)).toEqual(['node', 'python', 'go', 'rust', 'dart'])
+  })
+
+  // The v1 primary-language order must never change: new languages are appended.
+  it('keeps node → python → go ahead of later additions', () => {
+    expect(orderDetectors().slice(0, 3).map((d) => d.language)).toEqual(['node', 'python', 'go'])
+  })
+})
+
+describe('detectProject: Rust and Dart in mixed directories', () => {
+  it('never takes the primary role from node, python or go', async () => {
+    const dir = await project({
+      'package.json': '{"name":"web"}',
+      'Cargo.toml': '[package]\nname = "core"\nversion = "0.1.0"\n',
+      'pubspec.yaml': 'name: app\nversion: 1.0.0\n',
+    })
+    const result = await detectProject(dir)
+    expect(result.all.map((d) => d.language)).toEqual(['node', 'rust', 'dart'])
+    expect(result.primary?.language).toBe('node')
+    expect((await detectProject(dir, { priority: ['rust'] })).primary?.language).toBe('rust')
   })
 })

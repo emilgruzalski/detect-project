@@ -1,5 +1,76 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`BurntSushi/ripgrep > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "Cargo.lock",
+      "installCommand": "cargo fetch --locked",
+      "language": "rust",
+      "languageVersion": "1.96",
+      "languageVersionFile": "",
+      "languageVersionSource": "Cargo.toml:workspace.package.rust-version",
+      "lockfile": "Cargo.lock",
+      "manifest": "Cargo.toml",
+      "name": "ripgrep",
+      "packageManager": "cargo",
+      "packageManagerVersion": "",
+      "version": "15.2.0",
+      "versionSource": "Cargo.toml:package.version",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 2)": [
+    ".: rust",
+    "fuzz: rust",
+    "crates/cli: rust",
+    "crates/globset: rust",
+    "crates/grep: rust",
+    "crates/ignore: rust",
+    "crates/matcher: rust",
+    "crates/pcre2: rust",
+    "crates/printer: rust",
+    "crates/regex: rust",
+    "crates/searcher: rust",
+  ],
+}
+`;
+
+exports[`cfug/dio > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dart pub get",
+      "language": "dart",
+      "languageVersion": ">=2.18.0 <4.0.0",
+      "languageVersionFile": "",
+      "languageVersionSource": "pubspec.yaml:environment.sdk",
+      "lockfile": "",
+      "manifest": "pubspec.yaml",
+      "name": "dio_workspace",
+      "packageManager": "dart",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 2)": [
+    ".: dart",
+    "dio: dart",
+    "dio_test: dart",
+    "example_dart: dart",
+    "example_flutter_app: dart",
+    "plugins/compatibility_layer: dart",
+    "plugins/cookie_manager: dart",
+    "plugins/http2_adapter: dart",
+    "plugins/native_dio_adapter: dart",
+    "plugins/web_adapter: dart",
+  ],
+}
+`;
+
 exports[`charmbracelet/bubbletea > matches the snapshot 1`] = `
 {
   ".": [
@@ -17,6 +88,29 @@ exports[`charmbracelet/bubbletea > matches the snapshot 1`] = `
       "packageManagerVersion": "",
       "version": "",
       "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`clap-rs/clap > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "Cargo.lock",
+      "installCommand": "cargo fetch --locked",
+      "language": "rust",
+      "languageVersion": "1.85",
+      "languageVersionFile": "",
+      "languageVersionSource": "Cargo.toml:workspace.package.rust-version",
+      "lockfile": "Cargo.lock",
+      "manifest": "Cargo.toml",
+      "name": "clap",
+      "packageManager": "cargo",
+      "packageManagerVersion": "",
+      "version": "4.6.7",
+      "versionSource": "Cargo.toml:package.version",
       "workspaceRoot": ".",
     },
   ],
@@ -42,6 +136,28 @@ exports[`cli/cli > matches the snapshot 1`] = `
       "versionSource": "",
       "workspaceRoot": ".",
     },
+  ],
+}
+`;
+
+exports[`dart-lang/http > matches the snapshot 1`] = `
+{
+  ".": "unknown",
+  "discover (depth 2)": [
+    "tool: dart",
+    "pkgs/cronet_http: dart",
+    "pkgs/cupertino_http: dart",
+    "pkgs/flutter_http_example: dart",
+    "pkgs/http: dart",
+    "pkgs/http_client_conformance_tests: dart",
+    "pkgs/http_multi_server: dart",
+    "pkgs/http_parser: dart",
+    "pkgs/http_profile: dart",
+    "pkgs/http2: dart",
+    "pkgs/ok_http: dart",
+    "pkgs/web_socket: dart",
+    "pkgs/web_socket_channel: dart",
+    "pkgs/web_socket_conformance_tests: dart",
   ],
 }
 `;
@@ -157,6 +273,35 @@ exports[`junegunn/fzf > matches the snapshot 1`] = `
       "versionSource": "main.go",
       "workspaceRoot": ".",
     },
+  ],
+}
+`;
+
+exports[`localsend/localsend > matches the snapshot 1`] = `
+{
+  "app": [
+    {
+      "cacheDependencyPath": "../pubspec.lock",
+      "installCommand": "flutter pub get --enforce-lockfile",
+      "language": "dart",
+      "languageVersion": "3.41.9",
+      "languageVersionFile": "../.fvmrc",
+      "languageVersionSource": "../.fvmrc:flutter",
+      "lockfile": "../pubspec.lock",
+      "manifest": "pubspec.yaml",
+      "name": "localsend_app",
+      "packageManager": "flutter",
+      "packageManagerVersion": "",
+      "version": "1.18.2+64",
+      "versionSource": "pubspec.yaml",
+      "workspaceRoot": "..",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: rust, dart",
+    "app: dart",
+    "cli: rust",
+    "server: rust",
   ],
 }
 `;
@@ -284,6 +429,90 @@ exports[`python-poetry/poetry > matches the snapshot 1`] = `
 }
 `;
 
+exports[`rrousselGit/riverpod > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "dart pub get",
+      "language": "dart",
+      "languageVersion": "^3.12.0",
+      "languageVersionFile": "",
+      "languageVersionSource": "pubspec.yaml:environment.sdk",
+      "lockfile": "",
+      "manifest": "pubspec.yaml",
+      "name": "workspace",
+      "packageManager": "dart",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 2)": [
+    ".: dart",
+    "benchmarks: dart",
+    "website: node, dart",
+    "examples/counter: dart",
+    "examples/first_app: dart",
+    "examples/marvel: dart",
+    "examples/pub: dart",
+    "examples/random_number: dart",
+    "examples/stackoverflow: dart",
+    "examples/todos: dart",
+    "other_projects/devtool_debug_app: dart",
+    "packages/flutter_riverpod: dart",
+    "packages/hooks_riverpod: dart",
+    "packages/internal_lint: dart",
+    "packages/lint_visitor_generator: dart",
+    "packages/riverpod: dart",
+    "packages/riverpod_analyzer_utils: dart",
+    "packages/riverpod_analyzer_utils_tests: dart",
+    "packages/riverpod_annotation: dart",
+    "packages/riverpod_devtool: dart",
+    "packages/riverpod_devtool_generator: dart",
+    "packages/riverpod_generator: dart",
+    "packages/riverpod_lint: dart",
+    "packages/riverpod_lint_flutter_test: dart",
+    "packages/riverpod_sqflite: dart",
+    "tools/code_changes: dart",
+    "tools/generate_providers: dart",
+    "tools/package_graph: dart",
+  ],
+}
+`;
+
+exports[`serde-rs/serde > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "cargo fetch",
+      "language": "rust",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "Cargo.toml",
+      "name": "",
+      "packageManager": "cargo",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: rust",
+    "serde: rust",
+    "serde_core: rust",
+    "serde_derive: rust",
+    "serde_derive_internals: rust",
+    "test_suite: rust",
+  ],
+}
+`;
+
 exports[`spf13/cobra > matches the snapshot 1`] = `
 {
   ".": [
@@ -302,6 +531,60 @@ exports[`spf13/cobra > matches the snapshot 1`] = `
       "version": "",
       "versionSource": "",
       "workspaceRoot": ".",
+    },
+  ],
+}
+`;
+
+exports[`tokio-rs/tokio > matches the snapshot 1`] = `
+{
+  ".": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "cargo fetch",
+      "language": "rust",
+      "languageVersion": "",
+      "languageVersionFile": "",
+      "languageVersionSource": "",
+      "lockfile": "",
+      "manifest": "Cargo.toml",
+      "name": "",
+      "packageManager": "cargo",
+      "packageManagerVersion": "",
+      "version": "",
+      "versionSource": "",
+      "workspaceRoot": ".",
+    },
+  ],
+  "discover (depth 1)": [
+    ".: rust",
+    "benches: rust",
+    "examples: rust",
+    "stress-test: rust",
+    "tests-build: rust",
+    "tests-integration: rust",
+    "tokio: rust",
+    "tokio-macros: rust",
+    "tokio-stream: rust",
+    "tokio-test: rust",
+    "tokio-util: rust",
+  ],
+  "tokio": [
+    {
+      "cacheDependencyPath": "",
+      "installCommand": "cargo fetch",
+      "language": "rust",
+      "languageVersion": "1.85",
+      "languageVersionFile": "",
+      "languageVersionSource": "Cargo.toml:package.rust-version",
+      "lockfile": "",
+      "manifest": "Cargo.toml",
+      "name": "tokio",
+      "packageManager": "cargo",
+      "packageManagerVersion": "",
+      "version": "1.54.1",
+      "versionSource": "Cargo.toml:package.version",
+      "workspaceRoot": "..",
     },
   ],
 }

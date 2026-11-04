@@ -74,6 +74,55 @@
       }
     },
     {
+      "name": "rust workspace member",
+      "working-directory": "__tests__/fixtures/rust-workspace/crates/cli",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "rust",
+        "name": "fixture-cli",
+        "version": "3.1.0",
+        "version-source": "../../Cargo.toml:workspace.package.version",
+        "package-manager": "cargo",
+        "language-version": "1.85.0",
+        "language-version-source": "../../rust-toolchain.toml:toolchain.channel",
+        "language-version-file": "__tests__/fixtures/rust-workspace/rust-toolchain.toml",
+        "lockfile": "../../Cargo.lock",
+        "workspace-root": "__tests__/fixtures/rust-workspace",
+        "install-command": "cargo fetch --locked",
+        "cache-dependency-path": "__tests__/fixtures/rust-workspace/Cargo.lock"
+      }
+    },
+    {
+      "name": "flutter app",
+      "working-directory": "__tests__/fixtures/flutter-app",
+      "fail-on-unknown": true,
+      "expected": {
+        "language": "dart",
+        "name": "fixture_flutter",
+        "version": "1.4.0+27",
+        "version-major": "1",
+        "version-build": "27",
+        "is-prerelease": "false",
+        "package-manager": "flutter",
+        "language-version": "3.27.1",
+        "language-version-source": ".fvmrc:flutter",
+        "language-version-file": "__tests__/fixtures/flutter-app/.fvmrc",
+        "lockfile": "pubspec.lock",
+        "install-command": "flutter pub get --enforce-lockfile",
+        "cache-dependency-path": "__tests__/fixtures/flutter-app/pubspec.lock"
+      }
+    },
+    {
+      "name": "discover a rust workspace",
+      "working-directory": "__tests__/fixtures/rust-workspace",
+      "discover": true,
+      "expected": {
+        "language": "rust",
+        "version": "3.1.0",
+        "projects": "[\"__tests__/fixtures/rust-workspace\",\"__tests__/fixtures/rust-workspace/crates/cli\"]"
+      }
+    },
+    {
       "name": "discover a workspace",
       "working-directory": "__tests__/fixtures/node-workspace",
       "discover": true,

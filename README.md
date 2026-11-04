@@ -1,6 +1,6 @@
 # Detect Project
 
-GitHub Action that inspects a directory and reports **which language it is**, **what version the application is** and **which package manager it uses**. Supports **Node.js**, **Python** and **Go**.
+GitHub Action that inspects a directory and reports **which language it is**, **what version the application is** and **which package manager it uses**. Supports **Node.js**, **Python**, **Go**, **Rust** and **Dart/Flutter**.
 
 Typical uses: choosing the right `setup-*` action in a reusable workflow, tagging Docker images with the app version, or deciding between `npm ci` / `pnpm install` / `poetry install` without hard-coding it per repository.
 
@@ -35,7 +35,7 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 | Input | Default | Description |
 | --- | --- | --- |
 | `working-directory` | `.` | Directory to inspect, relative to the workspace root. The step **fails** when it does not exist or is not a directory. |
-| `language` | `auto` | Force a language (`node`, `python`, `go`) instead of auto-detecting. |
+| `language` | `auto` | Force a language (`node`, `python`, `go`, `rust`, `dart` — `dart` includes Flutter) instead of auto-detecting. |
 | `language-priority` | | Languages to prefer as primary when several are detected, comma separated (`python,node`). Unlisted languages follow in the default order. |
 | `tag-pattern` | | `git describe --match` glob(s) for the [git-tag fallback](#git-tags), comma or newline separated (`release-*`, `api@v*`). Replaces the default `vX.Y…` / `X.Y…` patterns; the literal part before the first wildcard is stripped from the tag. |
 | `discover` | `false` | Also inspect the subdirectories of `working-directory` and report every project found in the `projects` output (see [Discovering projects](#discovering-projects)). |
@@ -47,7 +47,7 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 
 | Output | Example | Description |
 | --- | --- | --- |
-| `language` | `node` | `node`, `python`, `go` or `unknown`. |
+| `language` | `node` | `node`, `python`, `go`, `rust`, `dart` (Dart and Flutter projects) or `unknown`. |
 | `name` | `my-app` | `package.json` name, pyproject name or Go module path. |
 | `version` | `1.4.2-rc.1` | Application version. Empty when it cannot be determined. |
 | `version-source` | `package.json` | Where the version came from (`pyproject.toml:project.version`, `VERSION`, `internal/version/version.go`, `../../.release-please-manifest.json:apps/api`, `git-tag`, …). |
@@ -106,6 +106,35 @@ The `__version__` scan only looks at the project's own package: the module named
 | Runtime version | `go` directive → `toolchain` → `.tool-versions` → `mise.toml` |
 | Install command | `go mod download` (`dep ensure` for dep; none for a bare `go.work`) |
 
+### Rust — manifest: `Cargo.toml`
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | `[package] name` (empty for a virtual workspace root) |
+| Version | `[package] version` → `[workspace.package] version` (for `version.workspace = true` and virtual workspace roots) → [release tooling](#release-tooling) → latest git tag |
+| Package manager | `cargo` |
+| Lockfile | `Cargo.lock` of the package, otherwise of its cargo workspace root |
+| Runtime version | `rust-toolchain.toml` `[toolchain] channel` / legacy `rust-toolchain`, in the package directory or the nearest parent up to the repository root (as rustup resolves them) → `rust-version` (MSRV; inherited from `[workspace.package]` with `rust-version.workspace = true`) → `.tool-versions` → `mise.toml` |
+| Install command | `cargo fetch --locked` with a `Cargo.lock`, otherwise `cargo fetch` |
+
+The cargo workspace of a package is its own Cargo.toml when that has a `[workspace]` table, the path in `package.workspace`, or else the nearest parent with a `[workspace]` that does not `exclude` it.
+
+### Dart / Flutter — manifest: `pubspec.yaml`
+
+`language` is `dart` for both; a project is a Flutter project — `package-manager` `flutter` instead of `dart` — when it depends on the Flutter SDK (`flutter: sdk: flutter`), constrains `environment.flutter` or has a `flutter:` section.
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | `name` |
+| Version | `version`, as written (`1.4.0+27`: `version-build` is `27`) → [release tooling](#release-tooling) |
+| Package manager | `flutter` or `dart` (pub) |
+| Lockfile | `pubspec.lock` of the package, otherwise of its [pub workspace](https://dart.dev/tools/pub/workspaces) root (members declare `resolution: workspace`, the root lists them under `workspace:`) |
+| Runtime version (Flutter) | The **Flutter** SDK version — Dart comes with it: FVM pin (`.fvmrc` `flutter`, `.fvm/fvm_config.json` `flutterSdkVersion`) in the package directory or the nearest parent up to the repository root → `environment.flutter` → `.tool-versions` → `mise.toml` |
+| Runtime version (Dart) | `environment.sdk` → `.tool-versions` → `mise.toml` |
+| Install command | `flutter pub get` / `dart pub get`, with `--enforce-lockfile` when there is a `pubspec.lock` |
+
+`pubspec.yaml` is parsed with the YAML failsafe schema, so `version: 1.10` stays `1.10` instead of becoming the number 1.1.
+
 ### Release tooling
 
 Versions recorded by release tools count for every language. They rank after the manifest's own version (and a `VERSION` file) and before guessing from source code:
@@ -126,14 +155,14 @@ Other tag schemes are selected with `tag-pattern` — e.g. `release-*` (tags `re
 
 When `working-directory` points into a repository, parent directories up to the repository root (or `GITHUB_WORKSPACE`, whichever is nearer) are consulted as well:
 
-- **Workspace members** — a directory listed in a parent's `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun; globs and `!` negations) or `[tool.uv.workspace] members` (minus `exclude`) — inherit the workspace root's lockfile, `packageManager` / `devEngines` / `volta` / `engines` declarations and uv settings. `workspace-root` then points at that root and `install-command` is meant to run there. Declarations of the project itself always win over the root's.
-- **Runtime version files** (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `mise.toml`) are looked up in parent directories the way nvm, pyenv, asdf and mise do — nearest first, after everything declared in the project directory.
+- **Workspace members** — a directory listed in a parent's `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun; globs and `!` negations) or `[tool.uv.workspace] members` (minus `exclude`), a member of a cargo workspace, or a pub workspace member (`resolution: workspace`) — inherit the workspace root's lockfile, `packageManager` / `devEngines` / `volta` / `engines` declarations, uv settings and `[workspace.package]` values. `workspace-root` then points at that root and `install-command` is meant to run there. Declarations of the project itself always win over the root's.
+- **Runtime version files** (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `mise.toml`) are looked up in parent directories the way nvm, pyenv, asdf and mise do — nearest first, after everything declared in the project directory. Toolchain pins that decide what gets installed — `rust-toolchain(.toml)` and FVM's `.fvmrc` — win over a package's own constraint (`rust-version`, `environment.flutter`) wherever they sit up to the repository root.
 
 A nested project that is *not* a workspace member keeps its own package manager and lockfile.
 
 ### Mixed repositories
 
-If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
+If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go → rust → dart**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
 
 ## Discovering projects
 
@@ -199,8 +228,10 @@ With [step debug logging](https://docs.github.com/actions/monitoring-and-trouble
 | Node.js (`node-version-file`) | `.nvmrc`, `.node-version`, `package.json` (`volta.node`, `devEngines.runtime`, `engines.node`), `.tool-versions`, `mise.toml` (`tools.node` as a string or `{ version }`) |
 | Python (`python-version-file`) | `.python-version`, `pyproject.toml` (`requires-python`, or Poetry's `python` when there is no `[project]` table), `Pipfile`, `.tool-versions` |
 | Go (`go-version-file`) | `go.mod` / `go.work` (setup-go prefers the `toolchain` directive), `.tool-versions` (`golang` entry) |
+| Flutter (`flutter-version-file` of [subosito/flutter-action](https://github.com/subosito/flutter-action)) | `.fvmrc`, `.fvm/fvm_config.json`, `pubspec.yaml` (only with an exact `environment.flutter` such as `3.24.3`) |
+| Rust (no file input) | `rust-toolchain.toml` / `rust-toolchain` — rustup and [actions-rust-lang/setup-rust-toolchain](https://github.com/actions-rust-lang/setup-rust-toolchain) without a `toolchain` input read it by themselves |
 
-For sources such as `setup.cfg`, `runtime.txt` or a mise file for Python/Go it is empty, so fall back to `language-version` or a default.
+For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rust `rust-version` (MSRV) or a Flutter version range it is empty, so fall back to `language-version` or a default. [dart-lang/setup-dart](https://github.com/dart-lang/setup-dart) only takes an `sdk` version or channel, so for pure Dart projects it is always empty; `language-version` is the `environment.sdk` constraint there.
 
 ## Example: set up, install and tag
 
@@ -228,6 +259,19 @@ For sources such as `setup.cfg`, `runtime.txt` or a mise file for Python/Go it i
   with:
     go-version-file: ${{ steps.project.outputs.language-version-file }}
     cache-dependency-path: ${{ steps.project.outputs.cache-dependency-path }}
+
+# Without a `toolchain` input it installs what rust-toolchain(.toml) asks for.
+- if: steps.project.outputs.language == 'rust'
+  uses: actions-rust-lang/setup-rust-toolchain@v2
+
+- if: steps.project.outputs.package-manager == 'flutter'
+  uses: subosito/flutter-action@v2
+  with:
+    flutter-version-file: ${{ steps.project.outputs.language-version-file }}
+    channel: stable
+
+- if: steps.project.outputs.package-manager == 'dart'
+  uses: dart-lang/setup-dart@v1
 
 - name: Install dependencies
   if: steps.project.outputs.install-command != ''
@@ -277,7 +321,7 @@ src/
   detect.ts            # runs the detectors, picks the primary language
   discover.ts          # walks subdirectories for the discover input
   detectors/
-    node.ts python.ts go.ts
+    node.ts python.ts go.ts rust.ts dart.ts
   utils/
     sources.ts         # resolveFirst(): ordered, named value sources with debug logging
     release-tools.ts   # release-please / bump-my-version / commitizen versions

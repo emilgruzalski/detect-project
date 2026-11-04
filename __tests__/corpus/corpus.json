@@ -15,6 +15,14 @@
     { "repo": "junegunn/fzf", "ref": "99bfd5aa0f66133d7dcfbf18f8044eb765f04649", "directories": ["."] },
     { "repo": "go-chi/chi", "ref": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf", "directories": ["."] },
     { "repo": "charmbracelet/bubbletea", "ref": "67b4c7a8a2b34a0b1ce15261b0c705bc7e1a04b7", "directories": ["."] },
-    { "repo": "cli/cli", "ref": "eeb44bc432c0107de002dadd34a61b4e2bd15882", "directories": ["."] }
+    { "repo": "cli/cli", "ref": "eeb44bc432c0107de002dadd34a61b4e2bd15882", "directories": ["."] },
+    { "repo": "BurntSushi/ripgrep", "ref": "91f5d22ef48bde459d90a8c7dbeab416e97d0f2b", "directories": ["."], "discover": 2 },
+    { "repo": "tokio-rs/tokio", "ref": "695a07dd5e5baae82eb8b6931afa61029cd9b854", "directories": [".", "tokio"], "discover": 1 },
+    { "repo": "serde-rs/serde", "ref": "0db9b3b504bcb0a7fa9cf001429869519afd3e9a", "directories": ["."], "discover": 1 },
+    { "repo": "clap-rs/clap", "ref": "ec93e71255c0b833a34f50662a3fdb22f53f6ded", "directories": ["."] },
+    { "repo": "dart-lang/http", "ref": "1f869d02260b485e1a5b923c5f02c9697402c6a6", "directories": ["."], "discover": 2 },
+    { "repo": "cfug/dio", "ref": "f1bef462289b40992d625d4eb2a2f42321217573", "directories": ["."], "discover": 2 },
+    { "repo": "localsend/localsend", "ref": "92e133aa43869e94d394fd04fa70c50a0f796a64", "directories": ["app"], "discover": 1 },
+    { "repo": "rrousselGit/riverpod", "ref": "4789e3308740f9b66c84fdcecdf7c42902ed9344", "directories": ["."], "discover": 2 }
   ]
 }

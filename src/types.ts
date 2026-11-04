@@ -1,4 +1,4 @@
-export type Language = 'node' | 'python' | 'go'
+export type Language = 'node' | 'python' | 'go' | 'rust' | 'dart'
 
 export type PackageManager =
   // node
@@ -16,6 +16,11 @@ export type PackageManager =
   // go
   | 'go'
   | 'dep'
+  // rust
+  | 'cargo'
+  // dart
+  | 'dart'
+  | 'flutter'
 
 /**
  * What a detector reports. Every path is relative to the inspected directory (posix separators) and
