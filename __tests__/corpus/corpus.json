@@ -23,6 +23,15 @@
     { "repo": "dart-lang/http", "ref": "1f869d02260b485e1a5b923c5f02c9697402c6a6", "directories": ["."], "discover": 2 },
     { "repo": "cfug/dio", "ref": "f1bef462289b40992d625d4eb2a2f42321217573", "directories": ["."], "discover": 2 },
     { "repo": "localsend/localsend", "ref": "92e133aa43869e94d394fd04fa70c50a0f796a64", "directories": ["app"], "discover": 1 },
-    { "repo": "rrousselGit/riverpod", "ref": "4789e3308740f9b66c84fdcecdf7c42902ed9344", "directories": ["."], "discover": 2 }
+    { "repo": "rrousselGit/riverpod", "ref": "4789e3308740f9b66c84fdcecdf7c42902ed9344", "directories": ["."], "discover": 2 },
+    { "repo": "rack/rack", "ref": "da90464e3fa93e3cb49dc2d4ede798e6c6b70b4f", "directories": ["."] },
+    { "repo": "sinatra/sinatra", "ref": "cb22afd7902b566b6eaba6c4ea89739494a65d12", "directories": ["."], "discover": 1 },
+    { "repo": "laravel/laravel", "ref": "def7ce14811161f3c689a71ca8abc1369da44bd6", "directories": ["."] },
+    { "repo": "composer/composer", "ref": "052cdd24fc97592f866c8f495c16b379a2c83966", "directories": ["."] },
+    { "repo": "serilog/serilog", "ref": "43105b35095337d77f022561a8f2d3db2f9a7937", "directories": [".", "src/Serilog"] },
+    { "repo": "App-vNext/Polly", "ref": "289f29808f70f49d3d46de57f42fcd1139bc2bd0", "directories": [".", "src/Polly"] },
+    { "repo": "google/gson", "ref": "65df6e5a99747f73d386f3a61d887a0257255e0f", "directories": [".", "gson"], "discover": 1 },
+    { "repo": "spring-projects/spring-petclinic", "ref": "500158f732419217507c7656904b8e6aa1bcc0d6", "directories": ["."] },
+    { "repo": "android/nowinandroid", "ref": "2982e63cb691ad49cd009aab43dc206fee6699c2", "directories": [".", "app"], "discover": 1 }
   ]
 }

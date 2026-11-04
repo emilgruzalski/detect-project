@@ -86,6 +86,32 @@ describe('dotnetDetector', () => {
     expect(await dotnetDetector.detect({ dir: nbgv })).toMatchObject({ version: '1.4-beta', versionSource: 'version.json:version' })
   })
 
+  // Found by the corpus test: Serilog keeps <VersionPrefix> in a Directory.Version.props imported by Directory.Build.props.
+  it('follows local imports of Directory.Build.props and the project file', async () => {
+    const root = await project({
+      'Directory.Build.props': '<Project>\n  <Import Project="$(MSBuildThisFileDirectory)Directory.Version.props" />\n  <Import Project="$(SolutionDir)ignored.props" />\n</Project>',
+      'Directory.Version.props': '<Project><PropertyGroup><VersionPrefix>4.4.1</VersionPrefix></PropertyGroup></Project>',
+      'src/Serilog/Serilog.csproj': csproj('<AssemblyVersion>$(VersionPrefix.Substring(0,3)).0.0</AssemblyVersion>'),
+    })
+    expect(await dotnetDetector.detect({ dir: path.join(root, 'src/Serilog'), boundary: root })).toMatchObject({
+      version: '4.4.1',
+      versionSource: '../../Directory.Version.props:VersionPrefix',
+    })
+    const projectImport = await project({
+      'eng/Versions.props': '<Project><PropertyGroup><Version>7.0.2</Version></PropertyGroup></Project>',
+      'src/App/App.csproj': csproj('').replace('</Project>', '  <Import Project="..\\..\\eng\\Versions.props" />\n</Project>'),
+    })
+    expect(await dotnetDetector.detect({ dir: path.join(projectImport, 'src/App'), boundary: projectImport })).toMatchObject({
+      version: '7.0.2',
+      versionSource: '../../eng/Versions.props:Version',
+    })
+  })
+
+  it('does not follow imports outside the boundary', async () => {
+    const root = await project({ 'outside.props': '<Project><PropertyGroup><Version>9.9.9</Version></PropertyGroup></Project>', 'repo/A.csproj': csproj('').replace('</Project>', '<Import Project="../outside.props" /></Project>') })
+    expect((await dotnetDetector.detect({ dir: path.join(root, 'repo'), boundary: path.join(root, 'repo') }))?.version).toBe('')
+  })
+
   it('takes the SDK from global.json, up to the repository root, before the target framework', async () => {
     const root = await project({
       'global.json': '{"sdk": {"version": "9.0.100", "rollForward": "latestFeature"}}',

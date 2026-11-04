@@ -65,11 +65,14 @@ export const rubyDetector: Detector = {
     if (!manifest) return undefined
 
     const spec = gemspec ? ((await readText(path.join(dir, gemspec))) ?? '') : ''
-    const name = /\.name\s*=\s*["']([^"']+)["']/.exec(spec)?.[1] ?? ''
+    // `spec.name = "x"`, or the positional form `Gem::Specification.new 'x', '1.0.0' do |s|` (sinatra).
+    const positional = /Gem::Specification\.new\s*\(?\s*["']([^"']+)["'](?:\s*,\s*(?:["']([^"']+)["'])?)?/.exec(spec)
+    const name = /\.name\s*=\s*["']([^"']+)["']/.exec(spec)?.[1] ?? positional?.[1] ?? ''
+    const literalVersion = /\.version\s*=\s*["']([^"']+)["']/.exec(spec)?.[1] ?? positional?.[2]
     const lockfile = (await firstExisting(dir, LOCKFILES)) ?? ''
 
     const version = await resolveFirst(ctx, 'ruby version', [
-      { name: 'gemspec version', read: () => (gemspec ? versionHit(/\.version\s*=\s*["']([^"']+)["']/.exec(spec)?.[1], `${gemspec}:version`) : undefined) },
+      { name: 'gemspec version', read: () => (gemspec ? versionHit(literalVersion, `${gemspec}:version`) : undefined) },
       { name: 'VERSION in lib/*/version.rb', read: () => versionFromVersionRb(dir, name) },
       versionFileSource(dir),
       ...releaseToolSources(ctx),

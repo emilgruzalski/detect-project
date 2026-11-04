@@ -1,9 +1,9 @@
 {
   "name": "detect-project-action",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "packageManager": "bun@1.4.3",
-  "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go, Rust, Dart/Flutter)",
+  "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET, Java/JVM)",
   "type": "module",
   "exports": {
     ".": "./dist/index.js"

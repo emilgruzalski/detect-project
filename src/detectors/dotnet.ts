@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext } from '../types.js'
 import { get, str, table } from '../utils/data.js'
-import { ancestors, isFile, listDir, readJson, readText, relPosix } from '../utils/fs.js'
+import { ancestors, isFile, isInside, listDir, readJson, readText, relPosix } from '../utils/fs.js'
 import { releaseToolSources } from '../utils/release-tools.js'
 import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, type RuntimeHit } from '../utils/runtime.js'
 import { gitTagSource, resolveFirst, type SourceHit, versionHit } from '../utils/sources.js'
@@ -21,16 +21,38 @@ async function readMsbuild(file: string): Promise<MsbuildFile | undefined> {
   return text === undefined ? undefined : { file, xml: stripXmlComments(text) }
 }
 
-/** `<Version>`, or `<VersionPrefix>` plus an optional `-<VersionSuffix>`. */
-function msbuildVersion(dir: string, source: MsbuildFile | undefined): SourceHit | undefined {
-  if (!source) return undefined
-  const label = relPosix(dir, source.file)
-  const version = msbuildProperty(source.xml, 'Version')
-  if (version) return versionHit(version, `${label}:Version`)
-  const prefix = msbuildProperty(source.xml, 'VersionPrefix')
-  if (!prefix) return undefined
-  const suffix = msbuildProperty(source.xml, 'VersionSuffix')
-  return versionHit(suffix ? `${prefix}-${suffix}` : prefix, `${label}:VersionPrefix`)
+/**
+ * `source` followed by the local files it imports (`<Import Project="$(MSBuildThisFileDirectory)Version.props" />`,
+ * `<Import Project="..\eng\Versions.props" />`), one level deep and within the walk boundary. Imports that use
+ * any other MSBuild property are skipped.
+ */
+async function withImports(source: MsbuildFile | undefined, boundary: string): Promise<MsbuildFile[]> {
+  if (!source) return []
+  const dir = path.dirname(source.file)
+  const files = [source]
+  for (const [, raw] of source.xml.matchAll(/<Import\s[^>]*?\bProject\s*=\s*"([^"]+)"/g)) {
+    const relative = raw!.replace(/\$\(MSBuildThisFileDirectory\)/g, '').replace(/\\/g, '/')
+    if (relative.includes('$(')) continue
+    const file = path.resolve(dir, relative)
+    if (!isInside(file, boundary)) continue
+    const imported = await readMsbuild(file)
+    if (imported) files.push(imported)
+  }
+  return files
+}
+
+/** `<Version>`, or `<VersionPrefix>` plus an optional `-<VersionSuffix>`, from the first file that declares one. */
+function msbuildVersion(dir: string, sources: readonly MsbuildFile[]): SourceHit | undefined {
+  for (const source of sources) {
+    const label = relPosix(dir, source.file)
+    const version = msbuildProperty(source.xml, 'Version')
+    if (version) return versionHit(version, `${label}:Version`)
+    const prefix = msbuildProperty(source.xml, 'VersionPrefix')
+    if (!prefix) continue
+    const suffix = msbuildProperty(source.xml, 'VersionSuffix')
+    return versionHit(suffix ? `${prefix}-${suffix}` : prefix, `${label}:VersionPrefix`)
+  }
+  return undefined
 }
 
 /**
@@ -50,12 +72,13 @@ export function dotnetVersionFromTargetFrameworks(value: string): string | undef
   })[0]
 }
 
-function targetFrameworkRuntime(source: MsbuildFile | undefined): RuntimeHit | undefined {
-  if (!source) return undefined
-  for (const field of ['TargetFramework', 'TargetFrameworks']) {
-    const raw = msbuildProperty(source.xml, field)
-    const value = raw ? dotnetVersionFromTargetFrameworks(raw) : undefined
-    if (value) return { value, file: source.file, field, setupReadable: false }
+function targetFrameworkRuntime(sources: readonly MsbuildFile[]): RuntimeHit | undefined {
+  for (const source of sources) {
+    for (const field of ['TargetFramework', 'TargetFrameworks']) {
+      const raw = msbuildProperty(source.xml, field)
+      const value = raw ? dotnetVersionFromTargetFrameworks(raw) : undefined
+      if (value) return { value, file: source.file, field, setupReadable: false }
+    }
   }
   return undefined
 }
@@ -88,20 +111,23 @@ export const dotnetDetector: Detector = {
     const manifest = solutions[0] ?? projects[0]
     if (!manifest) return undefined
 
+    const boundary = ctx.boundary ?? dir
     const project = solutions.length ? undefined : await readMsbuild(path.join(dir, manifest))
     // MSBuild imports the nearest Directory.Build.props above the project.
     let props: MsbuildFile | undefined
-    for (const level of [dir, ...ancestors(dir, ctx.boundary ?? dir)]) {
+    for (const level of [dir, ...ancestors(dir, boundary)]) {
       props = await readMsbuild(path.join(level, 'Directory.Build.props'))
       if (props) break
     }
+    const projectFiles = await withImports(project, boundary)
+    const propsFiles = await withImports(props, boundary)
 
     const stem = path.basename(manifest, path.extname(manifest))
     const name = (project && (msbuildProperty(project.xml, 'PackageId') ?? msbuildProperty(project.xml, 'AssemblyName'))) || stem
 
     const version = await resolveFirst(ctx, 'dotnet version', [
-      { name: `${manifest} Version/VersionPrefix`, read: () => msbuildVersion(dir, project) },
-      { name: 'Directory.Build.props Version/VersionPrefix', read: () => msbuildVersion(dir, props) },
+      { name: `${manifest} Version/VersionPrefix`, read: () => msbuildVersion(dir, projectFiles) },
+      { name: 'Directory.Build.props Version/VersionPrefix (and its imports)', read: () => msbuildVersion(dir, propsFiles) },
       { name: 'version.json (Nerdbank.GitVersioning)', read: () => nerdbankVersion(ctx) },
       ...releaseToolSources(ctx),
       gitTagSource(ctx),
@@ -110,7 +136,7 @@ export const dotnetDetector: Detector = {
     const runtime =
       (await resolveRuntime(ctx, 'dotnet sdk (global.json)', (level) => [() => globalJsonRuntime(level)])) ??
       (await resolveRuntime(ctx, 'dotnet target framework', (level) =>
-        level === dir ? [() => targetFrameworkRuntime(project), () => targetFrameworkRuntime(props)] : [],
+        level === dir ? [() => targetFrameworkRuntime(projectFiles), () => targetFrameworkRuntime(propsFiles)] : [],
       )) ??
       (await resolveRuntime(ctx, 'dotnet runtime (asdf/mise)', (level) => [() => toolVersionsRuntime(level, 'dotnet'), () => miseRuntime(level, 'dotnet')]))
 

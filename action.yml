@@ -1,5 +1,5 @@
 name: 'Detect Project'
-description: 'Detects the project language, application version and package manager (Node.js, Python, Go, Rust, Dart/Flutter)'
+description: 'Detects the project language, application version and package manager (Node.js, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET, Java/JVM)'
 author: 'Emil Gruzalski'
 
 branding:
@@ -12,11 +12,11 @@ inputs:
     required: false
     default: '.'
   language:
-    description: 'Force a language instead of auto-detecting. One of: auto, node, python, go, rust, dart (dart covers Flutter)'
+    description: 'Force a language instead of auto-detecting. One of: auto, node, python, go, rust, dart (covers Flutter), ruby, php, dotnet, java (covers Maven and Gradle builds)'
     required: false
     default: 'auto'
   language-priority:
-    description: 'Languages to prefer as primary when several are detected, comma separated (e.g. "python,node"). Unlisted languages follow in the default order node, python, go, rust, dart'
+    description: 'Languages to prefer as primary when several are detected, comma separated (e.g. "python,node"). Unlisted languages follow in the default order node, python, go, rust, dart, ruby, php, dotnet, java'
     required: false
     default: ''
   tag-pattern:
@@ -42,7 +42,7 @@ inputs:
 
 outputs:
   language:
-    description: 'Primary language: node, python, go, rust, dart (also for Flutter projects) or unknown'
+    description: 'Primary language: node, python, go, rust, dart (also for Flutter projects), ruby, php, dotnet, java (Maven/Gradle) or unknown'
   name:
     description: 'Project name from the manifest (package.json name, pyproject name, go.mod module path)'
   version:
@@ -62,7 +62,7 @@ outputs:
   is-prerelease:
     description: 'true when the version has a pre-release identifier, otherwise false'
   package-manager:
-    description: 'Detected package manager: npm, yarn, pnpm, bun, pip, poetry, pipenv, uv, pdm, hatch, go, dep, cargo, dart, flutter'
+    description: 'Detected package manager: npm, yarn, pnpm, bun, pip, poetry, pipenv, uv, pdm, hatch, go, dep, cargo, dart, flutter, bundler, composer, dotnet, maven, gradle'
   package-manager-version:
     description: 'Package manager version, if declared (packageManager field, engines, poetry.lock header, ...)'
   language-version:
@@ -70,7 +70,7 @@ outputs:
   language-version-source:
     description: 'Where language-version was read from, relative to working-directory (e.g. .nvmrc, package.json:engines.node, ../../.python-version)'
   language-version-file:
-    description: 'File language-version was read from, relative to the workspace root, when the official setup action can read it (node-version-file, python-version-file, go-version-file, flutter-version-file) or, for Rust, the rust-toolchain file rustup reads by itself; empty otherwise'
+    description: 'File language-version was read from, relative to the workspace root, when the official setup action can read it (node-version-file, python-version-file, go-version-file, flutter-version-file, php-version-file, global-json-file, java-version-file; setup-ruby reads .ruby-version/.tool-versions/mise.toml itself) or, for Rust, the rust-toolchain file rustup reads by itself; empty otherwise'
   manifest:
     description: 'Path to the manifest file the detection is based on, relative to working-directory'
   lockfile:

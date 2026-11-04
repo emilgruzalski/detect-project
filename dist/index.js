@@ -38615,16 +38615,38 @@ async function readMsbuild(file) {
   return text === undefined ? undefined : { file, xml: stripXmlComments(text) }
 }
 
-/** `<Version>`, or `<VersionPrefix>` plus an optional `-<VersionSuffix>`. */
-function msbuildVersion(dir, source) {
-  if (!source) return undefined
-  const label = relPosix(dir, source.file);
-  const version = msbuildProperty(source.xml, 'Version');
-  if (version) return versionHit(version, `${label}:Version`)
-  const prefix = msbuildProperty(source.xml, 'VersionPrefix');
-  if (!prefix) return undefined
-  const suffix = msbuildProperty(source.xml, 'VersionSuffix');
-  return versionHit(suffix ? `${prefix}-${suffix}` : prefix, `${label}:VersionPrefix`)
+/**
+ * `source` followed by the local files it imports (`<Import Project="$(MSBuildThisFileDirectory)Version.props" />`,
+ * `<Import Project="..\eng\Versions.props" />`), one level deep and within the walk boundary. Imports that use
+ * any other MSBuild property are skipped.
+ */
+async function withImports(source, boundary) {
+  if (!source) return []
+  const dir = path$1.dirname(source.file);
+  const files = [source];
+  for (const [, raw] of source.xml.matchAll(/<Import\s[^>]*?\bProject\s*=\s*"([^"]+)"/g)) {
+    const relative = raw.replace(/\$\(MSBuildThisFileDirectory\)/g, '').replace(/\\/g, '/');
+    if (relative.includes('$(')) continue
+    const file = path$1.resolve(dir, relative);
+    if (!isInside(file, boundary)) continue
+    const imported = await readMsbuild(file);
+    if (imported) files.push(imported);
+  }
+  return files
+}
+
+/** `<Version>`, or `<VersionPrefix>` plus an optional `-<VersionSuffix>`, from the first file that declares one. */
+function msbuildVersion(dir, sources) {
+  for (const source of sources) {
+    const label = relPosix(dir, source.file);
+    const version = msbuildProperty(source.xml, 'Version');
+    if (version) return versionHit(version, `${label}:Version`)
+    const prefix = msbuildProperty(source.xml, 'VersionPrefix');
+    if (!prefix) continue
+    const suffix = msbuildProperty(source.xml, 'VersionSuffix');
+    return versionHit(suffix ? `${prefix}-${suffix}` : prefix, `${label}:VersionPrefix`)
+  }
+  return undefined
 }
 
 /**
@@ -38644,12 +38666,13 @@ function dotnetVersionFromTargetFrameworks(value) {
   })[0]
 }
 
-function targetFrameworkRuntime(source) {
-  if (!source) return undefined
-  for (const field of ['TargetFramework', 'TargetFrameworks']) {
-    const raw = msbuildProperty(source.xml, field);
-    const value = raw ? dotnetVersionFromTargetFrameworks(raw) : undefined;
-    if (value) return { value, file: source.file, field, setupReadable: false }
+function targetFrameworkRuntime(sources) {
+  for (const source of sources) {
+    for (const field of ['TargetFramework', 'TargetFrameworks']) {
+      const raw = msbuildProperty(source.xml, field);
+      const value = raw ? dotnetVersionFromTargetFrameworks(raw) : undefined;
+      if (value) return { value, file: source.file, field, setupReadable: false }
+    }
   }
   return undefined
 }
@@ -38682,20 +38705,23 @@ const dotnetDetector = {
     const manifest = _nullishCoalesce$a(solutions[0], () => ( projects[0]));
     if (!manifest) return undefined
 
+    const boundary = _nullishCoalesce$a(ctx.boundary, () => ( dir));
     const project = solutions.length ? undefined : await readMsbuild(path$1.join(dir, manifest));
     // MSBuild imports the nearest Directory.Build.props above the project.
     let props;
-    for (const level of [dir, ...ancestors(dir, _nullishCoalesce$a(ctx.boundary, () => ( dir)))]) {
+    for (const level of [dir, ...ancestors(dir, boundary)]) {
       props = await readMsbuild(path$1.join(level, 'Directory.Build.props'));
       if (props) break
     }
+    const projectFiles = await withImports(project, boundary);
+    const propsFiles = await withImports(props, boundary);
 
     const stem = path$1.basename(manifest, path$1.extname(manifest));
     const name = (project && (_nullishCoalesce$a(msbuildProperty(project.xml, 'PackageId'), () => ( msbuildProperty(project.xml, 'AssemblyName'))))) || stem;
 
     const version = await resolveFirst(ctx, 'dotnet version', [
-      { name: `${manifest} Version/VersionPrefix`, read: () => msbuildVersion(dir, project) },
-      { name: 'Directory.Build.props Version/VersionPrefix', read: () => msbuildVersion(dir, props) },
+      { name: `${manifest} Version/VersionPrefix`, read: () => msbuildVersion(dir, projectFiles) },
+      { name: 'Directory.Build.props Version/VersionPrefix (and its imports)', read: () => msbuildVersion(dir, propsFiles) },
       { name: 'version.json (Nerdbank.GitVersioning)', read: () => nerdbankVersion(ctx) },
       ...releaseToolSources(ctx),
       gitTagSource(ctx),
@@ -38704,7 +38730,7 @@ const dotnetDetector = {
     const runtime =
       await _asyncNullishCoalesce$8(await _asyncNullishCoalesce$8((await resolveRuntime(ctx, 'dotnet sdk (global.json)', (level) => [() => globalJsonRuntime(level)])), async () => (
       (await resolveRuntime(ctx, 'dotnet target framework', (level) =>
-        level === dir ? [() => targetFrameworkRuntime(project), () => targetFrameworkRuntime(props)] : [],
+        level === dir ? [() => targetFrameworkRuntime(projectFiles), () => targetFrameworkRuntime(propsFiles)] : [],
       )))), async () => (
       (await resolveRuntime(ctx, 'dotnet runtime (asdf/mise)', (level) => [() => toolVersionsRuntime(level, 'dotnet'), () => miseRuntime(level, 'dotnet')]))));
 
@@ -40018,17 +40044,20 @@ const rubyDetector = {
     if (!manifest) return undefined
 
     const spec = gemspec ? (await _asyncNullishCoalesce$2((await readText(path$1.join(dir, gemspec))), async () => ( ''))) : '';
-    const name = _nullishCoalesce$4(_optionalChain$2([/\.name\s*=\s*["']([^"']+)["']/, 'access', _12 => _12.exec, 'call', _13 => _13(spec), 'optionalAccess', _14 => _14[1]]), () => ( ''));
+    // `spec.name = "x"`, or the positional form `Gem::Specification.new 'x', '1.0.0' do |s|` (sinatra).
+    const positional = /Gem::Specification\.new\s*\(?\s*["']([^"']+)["'](?:\s*,\s*(?:["']([^"']+)["'])?)?/.exec(spec);
+    const name = _nullishCoalesce$4(_nullishCoalesce$4(_optionalChain$2([/\.name\s*=\s*["']([^"']+)["']/, 'access', _12 => _12.exec, 'call', _13 => _13(spec), 'optionalAccess', _14 => _14[1]]), () => ( _optionalChain$2([positional, 'optionalAccess', _15 => _15[1]]))), () => ( ''));
+    const literalVersion = _nullishCoalesce$4(_optionalChain$2([/\.version\s*=\s*["']([^"']+)["']/, 'access', _16 => _16.exec, 'call', _17 => _17(spec), 'optionalAccess', _18 => _18[1]]), () => ( _optionalChain$2([positional, 'optionalAccess', _19 => _19[2]])));
     const lockfile = await _asyncNullishCoalesce$2((await firstExisting(dir, LOCKFILES)), async () => ( ''));
 
     const version = await resolveFirst(ctx, 'ruby version', [
-      { name: 'gemspec version', read: () => (gemspec ? versionHit(_optionalChain$2([/\.version\s*=\s*["']([^"']+)["']/, 'access', _15 => _15.exec, 'call', _16 => _16(spec), 'optionalAccess', _17 => _17[1]]), `${gemspec}:version`) : undefined) },
+      { name: 'gemspec version', read: () => (gemspec ? versionHit(literalVersion, `${gemspec}:version`) : undefined) },
       { name: 'VERSION in lib/*/version.rb', read: () => versionFromVersionRb(dir, name) },
       versionFileSource(dir),
       ...releaseToolSources(ctx),
     ]);
 
-    const bundler = lockfile ? await _asyncOptionalChain([/^BUNDLED WITH\r?\n\s+(\S+)/m, 'access', async _18 => _18.exec, 'call', async _19 => _19(await _asyncNullishCoalesce$2((await readText(path$1.join(dir, lockfile))), async () => ( ''))), 'optionalAccess', async _20 => _20[1]]) : undefined;
+    const bundler = lockfile ? await _asyncOptionalChain([/^BUNDLED WITH\r?\n\s+(\S+)/m, 'access', async _20 => _20.exec, 'call', async _21 => _21(await _asyncNullishCoalesce$2((await readText(path$1.join(dir, lockfile))), async () => ( ''))), 'optionalAccess', async _22 => _22[1]]) : undefined;
 
     // setup-ruby reads .ruby-version, .tool-versions and mise.toml (in its working-directory) by itself.
     const runtime = await resolveRuntime(ctx, 'ruby runtime', (level) => [
@@ -40041,8 +40070,8 @@ const rubyDetector = {
     return {
       language: 'ruby',
       name,
-      version: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _21 => _21.value]), () => ( '')),
-      versionSource: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _22 => _22.source]), () => ( '')),
+      version: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _23 => _23.value]), () => ( '')),
+      versionSource: _nullishCoalesce$4(_optionalChain$2([version, 'optionalAccess', _24 => _24.source]), () => ( '')),
       packageManager: 'bundler',
       packageManagerVersion: _nullishCoalesce$4(bundler, () => ( '')),
       ...runtimeFields(dir, runtime),

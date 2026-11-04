@@ -70,6 +70,17 @@ describe('rubyDetector', () => {
     expect((await rubyDetector.detect({ dir: single }))?.version).toBe('1.1.0')
   })
 
+  // Found by the corpus test: sinatra.gemspec uses the positional form.
+  it('reads the positional Gem::Specification.new form', async () => {
+    const computed = await project({
+      'sinatra.gemspec': "version = File.read(File.expand_path('VERSION', __dir__)).strip\n\nGem::Specification.new 'sinatra', version do |s|\nend\n",
+      'lib/sinatra/version.rb': "module Sinatra\n  VERSION = '4.2.1'\nend\n",
+    })
+    expect(await rubyDetector.detect({ dir: computed })).toMatchObject({ name: 'sinatra', version: '4.2.1', versionSource: 'lib/sinatra/version.rb' })
+    const literal = await project({ 'tool.gemspec': "Gem::Specification.new('tool', '0.3.0') do |s|\nend\n" })
+    expect(await rubyDetector.detect({ dir: literal })).toMatchObject({ name: 'tool', version: '0.3.0', versionSource: 'tool.gemspec:version' })
+  })
+
   it('treats a Rails app without a version as versionless', async () => {
     const dir = await project({ Gemfile: 'source "https://rubygems.org"\nruby "3.3.5"\ngem "rails", "~> 8.0"\n', 'Gemfile.lock': gemfileLock, 'config/application.rb': '' })
     expect(await rubyDetector.detect({ dir })).toMatchObject({

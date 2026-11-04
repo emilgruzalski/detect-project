@@ -1,6 +1,6 @@
 # Detect Project
 
-GitHub Action that inspects a directory and reports **which language it is**, **what version the application is** and **which package manager it uses**. Supports **Node.js**, **Python**, **Go**, **Rust** and **Dart/Flutter**.
+GitHub Action that inspects a directory and reports **which language it is**, **what version the application is** and **which package manager it uses**. Supports **Node.js**, **Python**, **Go**, **Rust**, **Dart/Flutter**, **Ruby**, **PHP**, **.NET** and **Java/JVM** (Maven, Gradle).
 
 Typical uses: choosing the right `setup-*` action in a reusable workflow, tagging Docker images with the app version, or deciding between `npm ci` / `pnpm install` / `poetry install` without hard-coding it per repository.
 
@@ -35,7 +35,7 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 | Input | Default | Description |
 | --- | --- | --- |
 | `working-directory` | `.` | Directory to inspect, relative to the workspace root. The step **fails** when it does not exist or is not a directory. |
-| `language` | `auto` | Force a language (`node`, `python`, `go`, `rust`, `dart` — `dart` includes Flutter) instead of auto-detecting. |
+| `language` | `auto` | Force a language (`node`, `python`, `go`, `rust`, `dart`, `ruby`, `php`, `dotnet`, `java` — `dart` includes Flutter, `java` any Maven or Gradle build) instead of auto-detecting. |
 | `language-priority` | | Languages to prefer as primary when several are detected, comma separated (`python,node`). Unlisted languages follow in the default order. |
 | `tag-pattern` | | `git describe --match` glob(s) for the [git-tag fallback](#git-tags), comma or newline separated (`release-*`, `api@v*`). Replaces the default `vX.Y…` / `X.Y…` patterns; the literal part before the first wildcard is stripped from the tag. |
 | `discover` | `false` | Also inspect the subdirectories of `working-directory` and report every project found in the `projects` output (see [Discovering projects](#discovering-projects)). |
@@ -47,7 +47,7 @@ Runs on the **Node.js 24** action runtime (`runs.using: node24`), which is the d
 
 | Output | Example | Description |
 | --- | --- | --- |
-| `language` | `node` | `node`, `python`, `go`, `rust`, `dart` (Dart and Flutter projects) or `unknown`. |
+| `language` | `node` | `node`, `python`, `go`, `rust`, `dart` (Dart and Flutter), `ruby`, `php`, `dotnet`, `java` (Maven and Gradle builds, also Kotlin) or `unknown`. |
 | `name` | `my-app` | `package.json` name, pyproject name or Go module path. |
 | `version` | `1.4.2-rc.1` | Application version. Empty when it cannot be determined. |
 | `version-source` | `package.json` | Where the version came from (`pyproject.toml:project.version`, `VERSION`, `internal/version/version.go`, `../../.release-please-manifest.json:apps/api`, `git-tag`, …). |
@@ -135,6 +135,48 @@ The cargo workspace of a package is its own Cargo.toml when that has a `[workspa
 
 `pubspec.yaml` is parsed with the YAML failsafe schema, so `version: 1.10` stays `1.10` instead of becoming the number 1.1.
 
+### Ruby — manifest: `Gemfile` (or `gems.rb`, or a `*.gemspec` alone)
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | gemspec `spec.name = "…"` or `Gem::Specification.new "…"` (empty for apps) |
+| Version | gemspec literal version → `VERSION = "…"` in `lib/<name>/version.rb` (or the single `lib/*/version.rb`) → `VERSION` file → [release tooling](#release-tooling) |
+| Package manager | `bundler`; version from `BUNDLED WITH` in `Gemfile.lock` |
+| Runtime version | `.ruby-version` → Gemfile `ruby "…"` / `ruby file: "…"` → `Gemfile.lock` `RUBY VERSION` → `.tool-versions` → `mise.toml` |
+| Install command | `bundle install` (none for a gemspec without Gemfile) |
+
+### PHP — manifest: `composer.json`
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name / version | `name`; `version` → [release tooling](#release-tooling) → latest git tag (Packagist versions packages by tags) |
+| Package manager | `composer`; lockfile `composer.lock` |
+| Runtime version | `.php-version` → `composer.lock` `platform-overrides.php` → `config.platform.php` → `require.php` → `.tool-versions` → `mise.toml` — the first three in the order shivammathur/setup-php reads them |
+| Install command | `composer install --no-interaction` |
+
+### .NET — manifest: `*.sln` / `*.slnx`, else `*.csproj` / `*.fsproj` / `*.vbproj` (first by name)
+
+| What | Sources, in priority order |
+| --- | --- |
+| Name | project `PackageId` → `AssemblyName` → file name (solutions: file name) |
+| Version | project `Version` → `VersionPrefix`[`-VersionSuffix`] → the same in the nearest `Directory.Build.props` (and local files it imports, e.g. `Directory.Version.props`) → Nerdbank.GitVersioning `version.json` → [release tooling](#release-tooling) → latest git tag (MinVer, GitVersion); conditional and computed (`$(…)`) values are skipped |
+| Package manager | `dotnet` (NuGet); lockfile `packages.lock.json` |
+| Runtime version | `global.json` `sdk.version`, looked up to the repository root like the `dotnet` CLI → highest `TargetFramework(s)` as an SDK major (`net8.0` → `8.0`) → `.tool-versions` → `mise.toml` |
+| Install command | `dotnet restore` (with the file name when the directory holds several solutions/projects; `--locked-mode` with a lockfile) |
+
+### Java / JVM — manifest: `pom.xml`, else `build.gradle(.kts)` / `settings.gradle(.kts)`
+
+`language` is `java` for every Maven or Gradle build, Kotlin and Android included; a directory with both a POM and a Gradle build is reported as Maven.
+
+| What | Maven | Gradle |
+| --- | --- | --- |
+| Name | `artifactId` | `rootProject.name` of the settings file, otherwise the directory name |
+| Version | `version` (`${revision}`-style placeholders resolved from properties and `.mvn/maven.config`) → the parent's version when the parent is in this repository → [release tooling](#release-tooling) → latest git tag | `gradle.properties` `version` → `version = "…"` → Android `versionName` + `versionCode` (`1.4.0+27`) → the build root's `gradle.properties` / build file → [release tooling](#release-tooling) → latest git tag |
+| Package manager version | Maven version from `.mvn/wrapper/maven-wrapper.properties` | Gradle version from `gradle/wrapper/gradle-wrapper.properties` |
+| Build root (`workspace-root`) | top of the `<modules>` aggregator chain | the directory whose `settings.gradle(.kts)` `include`s the project |
+| Runtime version | `.java-version` → `.sdkmanrc` → `maven.compiler.release` / `java.version` / `maven.compiler.target` / `.source` (own POM, then the aggregators) → `.tool-versions` → `mise.toml` | `.java-version` → `.sdkmanrc` → `JavaLanguageVersion.of(…)` / `jvmToolchain(…)` / `sourceCompatibility` (own build file, then the root's) → `.tool-versions` → `mise.toml` |
+| Install command | `./mvnw -B dependency:go-offline` (or `mvn`) for single-module builds; none for multi-module builds, where unbuilt sibling modules cannot be resolved | none — Gradle resolves dependencies during the build |
+
 ### Release tooling
 
 Versions recorded by release tools count for every language. They rank after the manifest's own version (and a `VERSION` file) and before guessing from source code:
@@ -155,14 +197,14 @@ Other tag schemes are selected with `tag-pattern` — e.g. `release-*` (tags `re
 
 When `working-directory` points into a repository, parent directories up to the repository root (or `GITHUB_WORKSPACE`, whichever is nearer) are consulted as well:
 
-- **Workspace members** — a directory listed in a parent's `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun; globs and `!` negations) or `[tool.uv.workspace] members` (minus `exclude`), a member of a cargo workspace, or a pub workspace member (`resolution: workspace`) — inherit the workspace root's lockfile, `packageManager` / `devEngines` / `volta` / `engines` declarations, uv settings and `[workspace.package]` values. `workspace-root` then points at that root and `install-command` is meant to run there. Declarations of the project itself always win over the root's.
+- **Workspace members** — a directory listed in a parent's `pnpm-workspace.yaml`, `package.json#workspaces` (npm, Yarn, Bun; globs and `!` negations) or `[tool.uv.workspace] members` (minus `exclude`), a member of a cargo workspace, a pub workspace member (`resolution: workspace`), a module of a Maven aggregator or a project `include`d by a Gradle settings file — inherit the workspace root's lockfile, `packageManager` / `devEngines` / `volta` / `engines` declarations, uv settings and `[workspace.package]` values. `workspace-root` then points at that root and `install-command` is meant to run there. Declarations of the project itself always win over the root's.
 - **Runtime version files** (`.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `mise.toml`) are looked up in parent directories the way nvm, pyenv, asdf and mise do — nearest first, after everything declared in the project directory. Toolchain pins that decide what gets installed — `rust-toolchain(.toml)` and FVM's `.fvmrc` — win over a package's own constraint (`rust-version`, `environment.flutter`) wherever they sit up to the repository root.
 
 A nested project that is *not* a workspace member keeps its own package manager and lockfile.
 
 ### Mixed repositories
 
-If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go → rust → dart**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
+If several languages are found in one directory, they are all reported in the `languages` output and the primary one is chosen in the order **node → python → go → rust → dart → ruby → php → dotnet → java**, with a warning. Set `language-priority:` (e.g. `python,node` for a Django app with a Tailwind `package.json`, or `php` for a Laravel app with its Vite `package.json`) to change the order, `language:` to consider a single language only, or point `working-directory` at the sub-project.
 
 ## Discovering projects
 
@@ -230,8 +272,12 @@ With [step debug logging](https://docs.github.com/actions/monitoring-and-trouble
 | Go (`go-version-file`) | `go.mod` / `go.work` (setup-go prefers the `toolchain` directive), `.tool-versions` (`golang` entry) |
 | Flutter (`flutter-version-file` of [subosito/flutter-action](https://github.com/subosito/flutter-action)) | `.fvmrc`, `.fvm/fvm_config.json`, `pubspec.yaml` (only with an exact `environment.flutter` such as `3.24.3`) |
 | Rust (no file input) | `rust-toolchain.toml` / `rust-toolchain` — rustup and [actions-rust-lang/setup-rust-toolchain](https://github.com/actions-rust-lang/setup-rust-toolchain) without a `toolchain` input read it by themselves |
+| Ruby (no file input) | `.ruby-version`, `.tool-versions`, `mise.toml` (`tools.ruby` as a string) — [ruby/setup-ruby](https://github.com/ruby/setup-ruby) reads them itself from its `working-directory` |
+| PHP (`php-version-file` of [shivammathur/setup-php](https://github.com/shivammathur/setup-php)) | `.php-version`, `.tool-versions` |
+| .NET (`global-json-file` of actions/setup-dotnet) | `global.json` |
+| Java (`java-version-file` of actions/setup-java) | `.java-version`, `.sdkmanrc`, `.tool-versions` |
 
-For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rust `rust-version` (MSRV) or a Flutter version range it is empty, so fall back to `language-version` or a default. [dart-lang/setup-dart](https://github.com/dart-lang/setup-dart) only takes an `sdk` version or channel, so for pure Dart projects it is always empty; `language-version` is the `environment.sdk` constraint there.
+For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rust `rust-version` (MSRV), a Flutter version range, a Gemfile `ruby` line, `composer.json` constraints, a .NET target framework or a POM/Gradle Java level it is empty, so fall back to `language-version` or a default. [dart-lang/setup-dart](https://github.com/dart-lang/setup-dart) only takes an `sdk` version or channel, so for pure Dart projects it is always empty; `language-version` is the `environment.sdk` constraint there. setup-php reads `composer.lock` `platform-overrides.php` and `config.platform.php` by itself when given no version.
 
 ## Example: set up, install and tag
 
@@ -272,6 +318,32 @@ For sources such as `setup.cfg`, `runtime.txt`, a mise file for Python/Go, a Rus
 
 - if: steps.project.outputs.package-manager == 'dart'
   uses: dart-lang/setup-dart@v1
+
+# Reads .ruby-version / .tool-versions / mise.toml from working-directory; installs BUNDLED WITH.
+- if: steps.project.outputs.language == 'ruby'
+  uses: ruby/setup-ruby@v1
+  with:
+    working-directory: ${{ steps.project.outputs.workspace-root }}
+    bundler-cache: true
+
+- if: steps.project.outputs.language == 'php'
+  uses: shivammathur/setup-php@v2
+  with:
+    php-version-file: ${{ steps.project.outputs.language-version-file }}
+
+- if: steps.project.outputs.language == 'dotnet'
+  uses: actions/setup-dotnet@v6
+  with:
+    global-json-file: ${{ steps.project.outputs.language-version-file }}
+    dotnet-version: ${{ steps.project.outputs.language-version-file == '' && steps.project.outputs.language-version || '' }}
+
+- if: steps.project.outputs.language == 'java'
+  uses: actions/setup-java@v6
+  with:
+    distribution: temurin
+    java-version-file: ${{ steps.project.outputs.language-version-file }}
+    java-version: ${{ steps.project.outputs.language-version-file == '' && steps.project.outputs.language-version || '' }}
+    cache: ${{ steps.project.outputs.package-manager }}
 
 - name: Install dependencies
   if: steps.project.outputs.install-command != ''
@@ -321,7 +393,7 @@ src/
   detect.ts            # runs the detectors, picks the primary language
   discover.ts          # walks subdirectories for the discover input
   detectors/
-    node.ts python.ts go.ts rust.ts dart.ts
+    node.ts python.ts go.ts rust.ts dart.ts ruby.ts php.ts dotnet.ts java.ts
   utils/
     sources.ts         # resolveFirst(): ordered, named value sources with debug logging
     release-tools.ts   # release-please / bump-my-version / commitizen versions
