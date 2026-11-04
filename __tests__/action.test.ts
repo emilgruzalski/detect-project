@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import * as path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
@@ -45,6 +45,12 @@ describe('action.yml', () => {
 })
 
 describe('README.md', () => {
+  // The README is the Marketplace listing: contributor documentation lives in CONTRIBUTING.md and docs/.
+  it('holds user documentation only', () => {
+    expect(readme).not.toMatch(/^## (Development|Releasing|Contributing)\b/m)
+    for (const file of ['CONTRIBUTING.md', 'docs/troubleshooting.md']) expect(existsSync(path.join(root, file)), file).toBe(true)
+  })
+
   it.each([...Object.keys(action.inputs).map((n) => ['input', n]), ...Object.keys(action.outputs).map((n) => ['output', n])])(
     'documents %s %s',
     (_, name) => {
