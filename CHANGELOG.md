@@ -5,6 +5,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-04
+
+### Changed
+
+- The README — and with it the Marketplace listing — is user documentation only: Development and Releasing moved to [CONTRIBUTING.md](CONTRIBUTING.md), Troubleshooting to [docs/troubleshooting.md](docs/troubleshooting.md).
+
 ## [1.4.0] - 2026-11-04
 
 ### Added
@@ -105,7 +111,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
-[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/emilgruzalski/detect-project/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/emilgruzalski/detect-project/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...v1.2.0
