@@ -116,14 +116,15 @@ describe('detectProject', () => {
 
 describe('orderDetectors', () => {
   it('puts preferred languages first and keeps the rest in registry order', () => {
-    expect(orderDetectors(['go']).map((d) => d.language)).toEqual(['go', 'node', 'python', 'rust', 'dart'])
-    expect(orderDetectors(['dart', 'go']).map((d) => d.language)).toEqual(['dart', 'go', 'node', 'python', 'rust'])
-    expect(orderDetectors().map((d) => d.language)).toEqual(['node', 'python', 'go', 'rust', 'dart'])
+    const all = ['node', 'python', 'go', 'rust', 'dart', 'ruby', 'php', 'dotnet', 'java']
+    expect(orderDetectors().map((d) => d.language)).toEqual(all)
+    expect(orderDetectors(['go']).map((d) => d.language)).toEqual(['go', ...all.filter((l) => l !== 'go')])
+    expect(orderDetectors(['java', 'dart']).map((d) => d.language)).toEqual(['java', 'dart', ...all.filter((l) => l !== 'java' && l !== 'dart')])
   })
 
   // The v1 primary-language order must never change: new languages are appended.
-  it('keeps node → python → go ahead of later additions', () => {
-    expect(orderDetectors().slice(0, 3).map((d) => d.language)).toEqual(['node', 'python', 'go'])
+  it('keeps the order of earlier releases ahead of later additions', () => {
+    expect(orderDetectors().slice(0, 5).map((d) => d.language)).toEqual(['node', 'python', 'go', 'rust', 'dart'])
   })
 })
 

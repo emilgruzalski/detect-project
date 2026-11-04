@@ -1,0 +1,20 @@
+PATH
+  remote: .
+  specs:
+    fixture-gem (0.4.2)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  fixture-gem!
+
+RUBY VERSION
+   ruby 3.3.5p100
+
+BUNDLED WITH
+   2.5.22
