@@ -40,17 +40,33 @@ function escapeGlob(value: string): string {
   return value.replace(/[*?[\]\\]/g, '\\$&')
 }
 
+/** The literal part of a glob before its first wildcard (`release-*` → `release-`, `api@v*` → `api@v`). */
+export function staticGlobPrefix(pattern: string): string {
+  const wildcard = pattern.search(/[*?[\\]/)
+  return wildcard < 0 ? pattern : pattern.slice(0, wildcard)
+}
+
+export interface TagOptions {
+  /** Literal tag prefix of a nested module (Go convention: `sub/dir/` for the module in `sub/dir`). */
+  prefix?: string | undefined
+  /** Custom `--match` globs replacing the built-in ones; their literal prefix is stripped from the tag. */
+  patterns?: readonly string[] | undefined
+}
+
 /**
  * Latest reachable release tag (via `git describe`), or undefined when the repository has no matching
  * tag or `cwd` is not inside a repository.
  *
- * Only tags shaped like `vX.Y…` / `X.Y…` are considered, so `nightly` or a floating `v1` major tag are
- * never reported. `prefix` selects tags of a nested module (Go convention: `sub/dir/v1.2.3` for the module
- * in `sub/dir`); it is stripped from the result.
+ * By default only tags shaped like `vX.Y…` / `X.Y…` are considered, so `nightly` or a floating `v1` major
+ * tag are never reported; `prefix` selects (and strips) the tags of a nested module. Custom `patterns`
+ * (e.g. `release-*`, `api@*`) replace those defaults and the prefix; the literal part of the matching
+ * pattern is stripped. Either way the result must look like a release version.
  */
-export async function gitDescribeTag(cwd: string, prefix = ''): Promise<string | undefined> {
+export async function gitDescribeTag(cwd: string, options: TagOptions = {}): Promise<string | undefined> {
+  const custom = (options.patterns ?? []).map((p) => p.trim()).filter(Boolean)
+  const prefix = custom.length ? '' : (options.prefix ?? '')
   const escaped = escapeGlob(prefix)
-  const patterns = [`${escaped}v[0-9]*.[0-9]*`, `${escaped}[0-9]*.[0-9]*`]
+  const patterns = custom.length ? custom : [`${escaped}v[0-9]*.[0-9]*`, `${escaped}[0-9]*.[0-9]*`]
   let out = ''
   try {
     const code = await exec('git', ['describe', '--tags', '--abbrev=0', ...patterns.flatMap((p) => ['--match', p])], {
@@ -65,10 +81,14 @@ export async function gitDescribeTag(cwd: string, prefix = ''): Promise<string |
   }
   let tag = out.trim()
   if (!tag) return undefined
-  if (prefix) {
-    if (!tag.startsWith(prefix)) return undefined
-    tag = tag.slice(prefix.length)
-  }
+  const strip = custom.length
+    ? custom
+        .map(staticGlobPrefix)
+        .filter((p) => tag.startsWith(p))
+        .sort((a, b) => b.length - a.length)[0] ?? ''
+    : prefix
+  if (!tag.startsWith(strip)) return undefined
+  tag = tag.slice(strip.length)
   const version = cleanVersion(tag)
   return looksLikeReleaseVersion(version) ? version : undefined
 }

@@ -62,7 +62,11 @@ export interface DetectorContext {
    */
   boundary?: string
   /** Root of the git repository containing `dir`, when there is one. */
-  gitRoot?: string
+  gitRoot?: string | undefined
+  /** Custom `git describe --match` patterns (the `tag-pattern` input); replaces the built-in release-tag patterns. */
+  tagPatterns?: readonly string[] | undefined
+  /** Receives one line per resolved value describing which sources were tried (wired to `core.debug`). */
+  debug?: ((message: string) => void) | undefined
 }
 
 export interface Detector {

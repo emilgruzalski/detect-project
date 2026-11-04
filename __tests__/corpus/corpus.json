@@ -1,0 +1,20 @@
+{
+  "$comment": "Real-world repositories pinned to a commit. `bun run test:corpus` clones each one (depth 1, so there are no tags) and compares the detection of every listed directory — and, with `discover`, the discovered projects — against __tests__/__snapshots__/corpus.test.ts.snap. Update the snapshot with `bun run test:corpus -u` after reviewing the diff.",
+  "repos": [
+    { "repo": "expressjs/express", "ref": "43fca52d28a422c8be48fd489cbd4f2d6152bab6", "directories": ["."] },
+    { "repo": "vitejs/vite", "ref": "1f60d62b83e2ba3d2ca600eac5cf790e84080843", "directories": [".", "packages/vite", "packages/create-vite"], "discover": 2 },
+    { "repo": "vuejs/core", "ref": "70599b52fbf1a9e91ee2bf112090c7e520937b56", "directories": [".", "packages/vue"], "discover": 2 },
+    { "repo": "prettier/prettier", "ref": "d5d30c11e87a245cae6e91ce8dc910e57afddb20", "directories": ["."] },
+    { "repo": "psf/requests", "ref": "3c7baaa05ab4aa49cc819ce3a819d260de19c157", "directories": ["."] },
+    { "repo": "pallets/flask", "ref": "49943b5a94413a530761350f04e896f76e8d620e", "directories": ["."] },
+    { "repo": "encode/httpx", "ref": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254", "directories": ["."] },
+    { "repo": "fastapi/fastapi", "ref": "69c67a1672eb7f8e5b3f9019a096f4993338c689", "directories": ["."] },
+    { "repo": "python-poetry/poetry", "ref": "6ecadf5b71309b1da4f00949cc349a79884cff8f", "directories": ["."] },
+    { "repo": "pydantic/pydantic-ai", "ref": "7a8999a3064ad2890a2fbd59f1b46ed7d9bfdd34", "directories": ["."], "discover": 1 },
+    { "repo": "spf13/cobra", "ref": "adbc8813901bba65827259daa8e22ff94ec1f30e", "directories": ["."] },
+    { "repo": "junegunn/fzf", "ref": "99bfd5aa0f66133d7dcfbf18f8044eb765f04649", "directories": ["."] },
+    { "repo": "go-chi/chi", "ref": "9f8adb1aabaa8a91180a821111d3f8e668d1c0bf", "directories": ["."] },
+    { "repo": "charmbracelet/bubbletea", "ref": "67b4c7a8a2b34a0b1ce15261b0c705bc7e1a04b7", "directories": ["."] },
+    { "repo": "cli/cli", "ref": "eeb44bc432c0107de002dadd34a61b4e2bd15882", "directories": ["."] }
+  ]
+}

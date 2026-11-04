@@ -1,6 +1,6 @@
 import { detectors } from './detectors/index.js'
 import type { Detection, Detector, Language } from './types.js'
-import { findGitRoot, isInside } from './utils/fs.js'
+import { findGitRoot, isInside, relPosix, withFileCache } from './utils/fs.js'
 
 export interface DetectResult {
   /** The language the outputs are based on, or undefined when nothing matched. */
@@ -20,6 +20,10 @@ export interface DetectOptions {
    * the git repository root that contains `dir`.
    */
   workspace?: string | undefined
+  /** Custom `git describe --match` patterns for the git-tag version fallback (`tag-pattern` input). */
+  tagPatterns?: readonly string[] | undefined
+  /** Receives debug lines describing which sources were tried for every value. */
+  debug?: ((message: string) => void) | undefined
 }
 
 /** Detectors in priority order: the `priority` languages first, then the rest in registry order. */
@@ -42,15 +46,18 @@ function walkBoundary(dir: string, gitRoot: string | undefined, workspace: strin
  * When `language` is given only that detector is considered. Otherwise the first detector (in
  * priority order) that matches becomes the primary result and the rest are still reported in `all`.
  */
-export async function detectProject(dir: string, options: DetectOptions = {}): Promise<DetectResult> {
-  const ordered = orderDetectors(options.priority)
-  const selected = options.language ? ordered.filter((d) => d.language === options.language) : ordered
-  const gitRoot = await findGitRoot(dir)
-  const ctx = { dir, gitRoot, boundary: walkBoundary(dir, gitRoot, options.workspace) }
-  const all: Detection[] = []
-  for (const detector of selected) {
-    const result = await detector.detect(ctx)
-    if (result) all.push(result)
-  }
-  return { primary: all[0], all }
+export function detectProject(dir: string, options: DetectOptions = {}): Promise<DetectResult> {
+  return withFileCache(async () => {
+    const ordered = orderDetectors(options.priority)
+    const selected = options.language ? ordered.filter((d) => d.language === options.language) : ordered
+    const gitRoot = await findGitRoot(dir)
+    const boundary = walkBoundary(dir, gitRoot, options.workspace)
+    const all: Detection[] = []
+    for (const detector of selected) {
+      const debug = options.debug && ((message: string) => options.debug!(`[${relPosix(options.workspace ?? dir, dir)}] ${message}`))
+      const result = await detector.detect({ dir, gitRoot, boundary, tagPatterns: options.tagPatterns, debug })
+      if (result) all.push(result)
+    }
+    return { primary: all[0], all }
+  })
 }

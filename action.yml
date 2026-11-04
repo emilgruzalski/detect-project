@@ -19,8 +19,24 @@ inputs:
     description: 'Languages to prefer as primary when several are detected, comma separated (e.g. "python,node"). Unlisted languages follow in the default order node, python, go'
     required: false
     default: ''
+  tag-pattern:
+    description: 'git describe --match glob(s) for the git-tag version fallback, comma or newline separated (e.g. "release-*", "api@v*"); replaces the default vX.Y / X.Y tags, the literal prefix before the first wildcard is stripped'
+    required: false
+    default: ''
+  discover:
+    description: 'Also inspect subdirectories of working-directory and report every project found in the "projects" output (JSON for a matrix)'
+    required: false
+    default: 'false'
+  discover-max-depth:
+    description: 'How many directory levels below working-directory discover inspects (0-10)'
+    required: false
+    default: '3'
+  discover-exclude:
+    description: 'Globs relative to working-directory that discover skips together with everything below them, comma or newline separated (e.g. "examples, legacy/**")'
+    required: false
+    default: ''
   fail-on-unknown:
-    description: 'Fail the step when no supported project is detected'
+    description: 'Fail the step when no supported project is detected (with discover: in working-directory nor below it)'
     required: false
     default: 'false'
 
@@ -67,6 +83,8 @@ outputs:
     description: 'Dependency file for setup-* caching, relative to the workspace root (lockfile, or requirements.txt / manifest for pip); empty when none'
   languages:
     description: 'JSON array with the full detection result for every language found in the directory'
+  projects:
+    description: 'With discover: JSON array with one entry per project directory found (directory relative to the workspace root, languages, plus every field of the primary result); [] otherwise'
 
 runs:
   using: node24

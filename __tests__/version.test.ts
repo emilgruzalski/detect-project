@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { extractAssignedVersion, gitDescribeTag, looksLikeReleaseVersion, splitVersion } from '../src/utils/version.js'
+import { extractAssignedVersion, gitDescribeTag, looksLikeReleaseVersion, splitVersion, staticGlobPrefix } from '../src/utils/version.js'
 import { cleanup, git, makeGitRepo, makeProject } from './helpers.js'
 
 const dirs: string[] = []
@@ -87,8 +87,57 @@ describe('gitDescribeTag', () => {
     git(dir, 'commit', '-q', '--allow-empty', '-m', 'tools release')
     git(dir, 'tag', 'tools/v0.2.0')
     expect(await gitDescribeTag(dir)).toBe('1.4.0')
-    expect(await gitDescribeTag(path.join(dir, 'tools'), 'tools/')).toBe('0.2.0')
-    expect(await gitDescribeTag(path.join(dir, 'tools'), 'other/')).toBeUndefined()
+    expect(await gitDescribeTag(path.join(dir, 'tools'), { prefix: 'tools/' })).toBe('0.2.0')
+    expect(await gitDescribeTag(path.join(dir, 'tools'), { prefix: 'other/' })).toBeUndefined()
+  })
+
+  describe('custom patterns (tag-pattern)', () => {
+    it.each([
+      [['release-*'], 'release-2.3.0', '2.3.0'],
+      [['api@v*'], 'api@v1.5.0', '1.5.0'],
+      [['api@*'], 'api@v1.5.0', '1.5.0'],
+      [['*'], 'v4.0.0', '4.0.0'],
+      [['web-*', 'api-*'], 'api-0.9.1', '0.9.1'],
+    ])('%j matches %s → %s', async (patterns, tag, expected) => {
+      const dir = await repo()
+      git(dir, 'tag', tag)
+      expect(await gitDescribeTag(dir, { patterns })).toBe(expected)
+    })
+
+    it('replaces the built-in patterns', async () => {
+      const dir = await repo()
+      git(dir, 'tag', 'v9.9.9')
+      git(dir, 'commit', '-q', '--allow-empty', '-m', 'next')
+      git(dir, 'tag', 'release-1.0.0')
+      expect(await gitDescribeTag(dir)).toBe('9.9.9')
+      expect(await gitDescribeTag(dir, { patterns: ['release-*'] })).toBe('1.0.0')
+      // A prefix (nested Go module) is ignored when custom patterns are given.
+      expect(await gitDescribeTag(dir, { prefix: 'tools/', patterns: ['release-*'] })).toBe('1.0.0')
+    })
+
+    it('still requires the stripped tag to look like a release version', async () => {
+      const dir = await repo()
+      git(dir, 'tag', 'release-latest')
+      expect(await gitDescribeTag(dir, { patterns: ['release-*'] })).toBeUndefined()
+    })
+
+    it('ignores blank patterns', async () => {
+      const dir = await repo()
+      git(dir, 'tag', 'v2.0.0')
+      expect(await gitDescribeTag(dir, { patterns: ['', '  '] })).toBe('2.0.0')
+    })
+  })
+})
+
+describe('staticGlobPrefix', () => {
+  it.each([
+    ['release-*', 'release-'],
+    ['api@v[0-9]*', 'api@v'],
+    ['*', ''],
+    ['v?.*', 'v'],
+    ['exact', 'exact'],
+  ])('%s → %j', (pattern, prefix) => {
+    expect(staticGlobPrefix(pattern)).toBe(prefix)
   })
 })
 

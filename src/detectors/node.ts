@@ -1,7 +1,9 @@
 import * as path from 'node:path'
 import type { Detection, Detector, DetectorContext, PackageManager } from '../types.js'
 import { ancestors, firstExisting, isFile, readJson, readText, relPosix } from '../utils/fs.js'
+import { releaseToolSources } from '../utils/release-tools.js'
 import { miseRuntime, resolveRuntime, runtimeFields, toolVersionsRuntime, versionFileRuntime, type RuntimeHit } from '../utils/runtime.js'
+import { resolveFirst, versionHit } from '../utils/sources.js'
 import { cleanVersion } from '../utils/version.js'
 import { matchesWorkspacePatterns, parsePnpmWorkspacePackages } from '../utils/workspace.js'
 
@@ -81,6 +83,31 @@ async function yarnVersionFromRc(dir: string): Promise<string | undefined> {
   if (!rc) return undefined
   const match = /^\s*yarnPath:\s*["']?.*yarn-(\d+\.\d+\.\d+[^"'\s/]*)\.c?js["']?\s*$/m.exec(rc)
   return match?.[1]
+}
+
+/**
+ * Major version implied by the lockfile format, used only when nothing declares the version:
+ * `pnpm-lock.yaml` `lockfileVersion` 5.3 → pnpm 6, 5.4 → 7, 6.x → 8, 9.x → 9 or later (pnpm 10 still
+ * writes 9.0); a Yarn v1 lockfile → Yarn 1, a Yarn Berry lockfile (`__metadata`) → Yarn 2 or later.
+ */
+export async function versionFromLockfileFormat(pm: NodePackageManager, lockfile: string): Promise<string> {
+  const text = (await readText(lockfile)) ?? ''
+  if (pm === 'pnpm') {
+    const match = /^lockfileVersion:\s*['"]?(\d+)(?:\.(\d+))?/m.exec(text)
+    if (!match) return ''
+    const major = Number(match[1])
+    const minor = Number(match[2] ?? 0)
+    if (major === 9) return '>=9'
+    if (major === 6) return '8'
+    if (major === 5 && minor === 4) return '7'
+    if (major === 5 && minor === 3) return '6'
+    return ''
+  }
+  if (pm === 'yarn') {
+    if (/^__metadata:/m.test(text)) return '>=2'
+    if (/^# yarn lockfile v1\b/m.test(text)) return '1'
+  }
+  return ''
 }
 
 /** Yarn 2+ ("Berry") vs Yarn 1 ("Classic"): they need different frozen-install flags. */
@@ -187,27 +214,33 @@ export const nodeDetector: Detector = {
       else if (pm === 'yarn') packageManagerVersion = (await yarnVersionFromRc(dir)) ?? (workspace ? await yarnVersionFromRc(workspace.dir) : undefined) ?? ''
       const engines = [pkg, rootPkg].map((p) => p?.engines?.[pm]).find((v): v is string => typeof v === 'string')
       if (!packageManagerVersion && engines) packageManagerVersion = engines.trim()
+      if (!packageManagerVersion && lockfilePath && lockfilePm(lockfilePath) === pm) {
+        packageManagerVersion = await versionFromLockfileFormat(pm, lockfilePath)
+      }
     }
 
     const installRoot = workspace?.dir ?? dir
     const frozen = lockfilePm(lockfilePath) === packageManager
     const yarnBerry = packageManager === 'yarn' && (await isYarnBerry(installRoot, packageManagerVersion, lockfilePath))
 
-    const runtime = await resolveRuntime(ctx, (level) => [
+    const runtime = await resolveRuntime(ctx, 'node runtime', (level) => [
       () => versionFileRuntime(level, ['.nvmrc', '.node-version']),
       () => packageJsonRuntime(level, level === dir ? pkg : level === workspace?.dir ? rootPkg : undefined),
       () => toolVersionsRuntime(level, 'node'),
       () => miseRuntime(level, 'node'),
     ])
 
-    const version = typeof pkg.version === 'string' ? cleanVersion(pkg.version) : ''
+    const version = await resolveFirst(ctx, 'node version', [
+      { name: 'package.json:version', read: () => versionHit(typeof pkg.version === 'string' ? pkg.version : undefined, manifest) },
+      ...releaseToolSources(ctx),
+    ])
     const lockfile = lockfilePath ? relPosix(dir, lockfilePath) : ''
 
     return {
       language: 'node',
       name: typeof pkg.name === 'string' ? pkg.name : '',
-      version,
-      versionSource: version ? manifest : '',
+      version: version?.value ?? '',
+      versionSource: version?.source ?? '',
       packageManager,
       packageManagerVersion,
       ...runtimeFields(dir, runtime),

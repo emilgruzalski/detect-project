@@ -1,6 +1,6 @@
 {
   "name": "detect-project-action",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "packageManager": "bun@1.4.3",
   "description": "GitHub Action that detects the project's language, application version and package manager (Node, Python, Go)",
@@ -13,8 +13,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --exclude __tests__/e2e.test.ts",
+    "test": "vitest run --exclude __tests__/e2e.test.ts --exclude __tests__/corpus.test.ts",
     "test:e2e": "vitest run __tests__/e2e.test.ts",
+    "test:corpus": "vitest run __tests__/corpus.test.ts",
     "test:watch": "vitest",
     "package": "rimraf dist && rollup --config rollup.config.ts",
     "package:watch": "bun run package --watch",
@@ -33,9 +34,9 @@
     "@rollup/plugin-sucrase": "^5.1.0",
     "@types/node": "^24.19.2",
     "rimraf": "^6.0.1",
-    "rollup": "^4.63.5",
+    "rollup": "^4.64.12",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.5"
   },
   "license": "Apache-2.0"
 }

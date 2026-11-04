@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import * as core from '@actions/core'
 import { detectProject } from './detect.js'
 import { isLanguage, languages } from './detectors/index.js'
+import { discoverProjects } from './discover.js'
 import type { Detection, Language } from './types.js'
 import { relPosix } from './utils/fs.js'
 import { splitVersion } from './utils/version.js'
@@ -101,12 +102,46 @@ export function parseLanguageList(raw: string, input: string): Language[] {
   return [...new Set(items)] as Language[]
 }
 
-async function writeSummary(all: Result[], dir: string): Promise<void> {
+/** One entry of the `projects` output: the primary result of a discovered directory. */
+export interface ProjectEntry extends Result {
+  /** Project directory relative to the workspace root (`.` for the root), usable as `working-directory`. */
+  directory: string
+  /** Every language detected in the directory, primary first. */
+  languages: Language[]
+}
+
+/** Escapes text for the HTML job summary; names and versions come from files in the repository. */
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+}
+
+/** Splits a comma / newline separated input into trimmed, non-empty items. */
+export function parseList(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+const MAX_DISCOVER_DEPTH = 10
+
+/** Parses `discover-max-depth`: an integer between 0 and 10, 3 when empty. */
+export function parseDepth(raw: string): number {
+  const value = raw.trim()
+  if (!value) return 3
+  if (!/^\d+$/.test(value) || Number(value) > MAX_DISCOVER_DEPTH) {
+    throw new Error(`discover-max-depth must be an integer between 0 and ${MAX_DISCOVER_DEPTH}, got "${raw}"`)
+  }
+  return Number(value)
+}
+
+async function writeSummary(all: Result[], dir: string, projects: ProjectEntry[] | undefined): Promise<void> {
   // Job summaries are always available on GitHub runners; skip gracefully elsewhere (e.g. @github/local-action).
   if (!process.env['GITHUB_STEP_SUMMARY']) return
-  const summary = core.summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${dir}</code>\n\n`)
+  const summary = core.summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${escapeHtml(dir)}</code>\n\n`)
+  const cell = (value: string) => (value ? escapeHtml(value) : '—')
   if (all.length === 0) {
-    summary.addRaw('No supported project (Node.js, Python, Go) was found.\n')
+    summary.addRaw('No supported project (Node.js, Python, Go) was found in this directory.\n')
   } else {
     summary.addTable([
       [
@@ -121,15 +156,38 @@ async function writeSummary(all: Result[], dir: string): Promise<void> {
       ],
       ...all.map((d, i) => [
         i === 0 ? `<strong>${d.language}</strong> (primary)` : d.language,
-        d.name || '—',
-        d.version || '—',
-        d.versionSource || '—',
-        d.packageManagerVersion ? `${d.packageManager} ${d.packageManagerVersion}` : d.packageManager,
-        d.languageVersion ? `${d.languageVersion} (${d.languageVersionSource})` : '—',
-        d.manifest,
-        d.lockfile || '—',
+        cell(d.name),
+        cell(d.version),
+        cell(d.versionSource),
+        cell(d.packageManagerVersion ? `${d.packageManager} ${d.packageManagerVersion}` : d.packageManager),
+        cell(d.languageVersion ? `${d.languageVersion} (${d.languageVersionSource})` : ''),
+        cell(d.manifest),
+        cell(d.lockfile),
       ]),
     ])
+  }
+  if (projects) {
+    summary.addHeading(`Discovered projects (${projects.length})`, 3)
+    if (projects.length === 0) summary.addRaw('No supported project was found below the inspected directory.\n')
+    else
+      summary.addTable([
+        [
+          { data: 'Directory', header: true },
+          { data: 'Language', header: true },
+          { data: 'Name', header: true },
+          { data: 'Version', header: true },
+          { data: 'Package manager', header: true },
+          { data: 'Install', header: true },
+        ],
+        ...projects.map((p) => [
+          `<code>${escapeHtml(p.directory)}</code>`,
+          escapeHtml(p.languages.join(', ')),
+          cell(p.name),
+          cell(p.version),
+          cell(p.packageManagerVersion ? `${p.packageManager} ${p.packageManagerVersion}` : p.packageManager),
+          p.installCommand ? `<code>${escapeHtml(p.installCommand)}</code> in <code>${escapeHtml(p.workspaceRoot)}</code>` : '—',
+        ]),
+      ])
   }
   await summary.write()
 }
@@ -138,6 +196,10 @@ export async function run(): Promise<void> {
   const workingDirectory = core.getInput('working-directory') || '.'
   const languageInput = (core.getInput('language') || 'auto').trim().toLowerCase()
   const priority = parseLanguageList(core.getInput('language-priority'), 'language-priority')
+  const tagPatterns = parseList(core.getInput('tag-pattern'))
+  const discover = core.getBooleanInput('discover')
+  const maxDepth = parseDepth(core.getInput('discover-max-depth'))
+  const exclude = parseList(core.getInput('discover-exclude'))
   const failOnUnknown = core.getBooleanInput('fail-on-unknown')
 
   const workspace = path.resolve(process.env['GITHUB_WORKSPACE'] ?? process.cwd())
@@ -157,9 +219,22 @@ export async function run(): Promise<void> {
   if (!stat.isDirectory()) throw new Error(`working-directory "${workingDirectory}" is not a directory (resolved to ${dir})`)
 
   core.info(`Inspecting ${dir}${forced ? ` (language forced to ${forced})` : ''}`)
-  const detected = await detectProject(dir, { language: forced, priority, workspace })
+  const options = { language: forced, priority, workspace, tagPatterns, debug: (message: string) => core.debug(message) }
+  const detected = await detectProject(dir, options)
   const all = detected.all.map((d) => toResult(d, dir, workspace))
   const primary = all[0]
+
+  let projects: ProjectEntry[] | undefined
+  if (discover) {
+    const found = await discoverProjects(dir, { ...options, maxDepth, exclude })
+    projects = found.map(({ dir: projectDir, result }) => ({
+      ...toResult(result.primary!, projectDir, workspace),
+      directory: relPosix(workspace, projectDir),
+      languages: result.all.map((d) => d.language),
+    }))
+    core.info(`Discovered ${projects.length} project(s) up to ${maxDepth} level(s) below ${dir}: ${projects.map((p) => `${p.directory} (${p.language})`).join(', ') || 'none'}`)
+  }
+  core.setOutput('projects', JSON.stringify(projects ?? []))
 
   if (all.length > 1) {
     core.warning(
@@ -183,10 +258,15 @@ export async function run(): Promise<void> {
     if (!primary.version) core.warning(`Could not determine the application version for ${primary.manifest}`)
   }
 
-  await writeSummary(all, dir)
+  await writeSummary(all, dir, projects)
 
   if (!primary) {
-    const message = `No supported project found in ${dir} (looked for Node.js, Python and Go manifests)`
+    // With discover, projects below the inspected directory count as "something was found".
+    if (projects?.length) {
+      core.info(`No supported project in ${dir} itself; see the "projects" output for the ${projects.length} discovered below it`)
+      return
+    }
+    const message = `No supported project found in ${dir}${discover ? ` or up to ${maxDepth} level(s) below it` : ''} (looked for Node.js, Python and Go manifests)`
     if (failOnUnknown) throw new Error(message)
     core.warning(message)
   }
