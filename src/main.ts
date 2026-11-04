@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as core from '@actions/core'
 import { detectProject } from './detect.js'
-import { isLanguage, languages } from './detectors/index.js'
+import { isLanguage, languages, supportedLanguagesText } from './detectors/index.js'
 import { discoverProjects } from './discover.js'
 import type { Detection, Language } from './types.js'
 import { relPosix } from './utils/fs.js'
@@ -141,7 +141,7 @@ async function writeSummary(all: Result[], dir: string, projects: ProjectEntry[]
   const summary = core.summary.addHeading('Project detection', 2).addRaw(`Inspected directory: <code>${escapeHtml(dir)}</code>\n\n`)
   const cell = (value: string) => (value ? escapeHtml(value) : '—')
   if (all.length === 0) {
-    summary.addRaw('No supported project (Node.js, Python, Go) was found in this directory.\n')
+    summary.addRaw(`No supported project (${supportedLanguagesText()}) was found in this directory.\n`)
   } else {
     summary.addTable([
       [
@@ -266,7 +266,7 @@ export async function run(): Promise<void> {
       core.info(`No supported project in ${dir} itself; see the "projects" output for the ${projects.length} discovered below it`)
       return
     }
-    const message = `No supported project found in ${dir}${discover ? ` or up to ${maxDepth} level(s) below it` : ''} (looked for Node.js, Python and Go manifests)`
+    const message = `No supported project found in ${dir}${discover ? ` or up to ${maxDepth} level(s) below it` : ''} (looked for ${supportedLanguagesText()} manifests)`
     if (failOnUnknown) throw new Error(message)
     core.warning(message)
   }

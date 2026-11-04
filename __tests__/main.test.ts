@@ -123,8 +123,8 @@ describe('run', () => {
 
   it('rejects an unsupported language input', async () => {
     process.env['GITHUB_WORKSPACE'] = await project({})
-    core.inputs = { language: 'rust' }
-    await expect(run()).rejects.toThrow('Unsupported language "rust"')
+    core.inputs = { language: 'cobol' }
+    await expect(run()).rejects.toThrow('Unsupported language "cobol"')
   })
 
   // Regression: a mistyped working-directory only produced a "no supported project" warning.
@@ -153,8 +153,8 @@ describe('run', () => {
 
   it('rejects an unsupported language in language-priority', async () => {
     process.env['GITHUB_WORKSPACE'] = await project({ 'package.json': '{}' })
-    core.inputs = { 'language-priority': 'python,rust' }
-    await expect(run()).rejects.toThrow('Unsupported language "rust" in language-priority')
+    core.inputs = { 'language-priority': 'python,cobol' }
+    await expect(run()).rejects.toThrow('Unsupported language "cobol" in language-priority')
   })
 
   it('sets the version components, runtime source and install outputs', async () => {

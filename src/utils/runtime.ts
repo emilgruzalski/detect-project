@@ -4,7 +4,7 @@ import type { DetectorContext } from '../types.js'
 import { ancestors, readText, readVersionFile, relPosix } from './fs.js'
 import { cleanVersion } from './version.js'
 
-export type Runtime = 'node' | 'python' | 'go'
+export type Runtime = 'node' | 'python' | 'go' | 'rust' | 'dart' | 'flutter'
 
 /** A runtime version together with where it was found. */
 export interface RuntimeHit {
@@ -25,13 +25,22 @@ const ASDF_NAMES: Record<Runtime, readonly string[]> = {
   node: ['nodejs', 'node'],
   python: ['python'],
   go: ['golang', 'go'],
+  rust: ['rust'],
+  dart: ['dart'],
+  flutter: ['flutter'],
 }
 
-/** `.tool-versions` names the setup actions understand (setup-go only matches `golang`). */
+/**
+ * `.tool-versions` names the setup actions understand (setup-go only matches `golang`); the Rust, Dart
+ * and Flutter setup actions do not read `.tool-versions` at all.
+ */
 const TOOL_VERSIONS_READABLE: Record<Runtime, readonly string[]> = {
   node: ['nodejs', 'node'],
   python: ['python'],
   go: ['golang'],
+  rust: [],
+  dart: [],
+  flutter: [],
 }
 
 /** Looks up a runtime version in asdf's `.tool-versions` in `dir`. */

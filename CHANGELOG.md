@@ -5,6 +5,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-04
+
+### Added
+
+- **Rust** (`language: rust`, package manager `cargo`): `Cargo.toml` name and version (incl. `version.workspace = true` and virtual workspace roots), cargo workspaces (lockfile and `workspace-root` of the workspace root; `members`, `exclude`, `package.workspace`), runtime from `rust-toolchain.toml` / `rust-toolchain` (looked up to the repository root, like rustup) → `rust-version` (MSRV, incl. workspace inheritance) → `.tool-versions` / `mise.toml`; install command `cargo fetch --locked`.
+- **Dart / Flutter** (`language: dart`, package manager `dart` or `flutter`): `pubspec.yaml` name and version (`1.4.0+27` → `version-build` `27`), pub workspaces (`resolution: workspace`), `pubspec.lock`; for Flutter projects the runtime is the Flutter SDK version — FVM `.fvmrc` / `.fvm/fvm_config.json` (looked up to the repository root) → `environment.flutter` → `.tool-versions` / `mise.toml` — with `language-version-file` set when subosito/flutter-action can read it; for Dart projects the `environment.sdk` constraint. Install command `flutter pub get` / `dart pub get` (`--enforce-lockfile` with a lockfile).
+- `discover`, `language`, `language-priority` and the job summary cover both new languages.
+- Corpus: ripgrep, tokio, serde, clap, dart-lang/http, dio, localsend and riverpod (23 repositories in total).
+
+### Changed
+
+- New languages are appended to the detection order (`node → python → go → rust → dart`), so the primary language of existing mixed projects does not change.
+- New runtime dependency `yaml` (bundled into `dist/`) for `pubspec.yaml`, parsed with the failsafe schema so `version: 1.10` stays `1.10`.
+
 ## [1.2.0] - 2026-11-04
 
 ### Added
@@ -73,7 +87,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
-[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/emilgruzalski/detect-project/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/emilgruzalski/detect-project/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/emilgruzalski/detect-project/compare/v1.0.0...v1.0.1
