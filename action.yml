@@ -1,5 +1,5 @@
 name: 'Detect Project'
-description: 'Detects the project language, application version and package manager (Node.js, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET, Java/JVM)'
+description: 'Detects language, version, package manager and runtime: Node, Python, Go, Rust, Dart/Flutter, Ruby, PHP, .NET, Java'
 author: 'Emil Gruzalski'
 
 branding:
@@ -12,79 +12,79 @@ inputs:
     required: false
     default: '.'
   language:
-    description: 'Force a language instead of auto-detecting. One of: auto, node, python, go, rust, dart (covers Flutter), ruby, php, dotnet, java (covers Maven and Gradle builds)'
+    description: 'Only consider this language: auto, node, python, go, rust, dart (incl. Flutter), ruby, php, dotnet or java (Maven/Gradle).'
     required: false
     default: 'auto'
   language-priority:
-    description: 'Languages to prefer as primary when several are detected, comma separated (e.g. "python,node"). Unlisted languages follow in the default order node, python, go, rust, dart, ruby, php, dotnet, java'
+    description: 'Languages to prefer as primary when a directory has several, comma separated (e.g. "python,node").'
     required: false
     default: ''
   tag-pattern:
-    description: 'git describe --match glob(s) for the git-tag version fallback, comma or newline separated (e.g. "release-*", "api@v*"); replaces the default vX.Y / X.Y tags, the literal prefix before the first wildcard is stripped'
+    description: 'git describe --match globs for the git-tag version fallback, comma or newline separated (e.g. "release-*", "api@v*").'
     required: false
     default: ''
   discover:
-    description: 'Also inspect subdirectories of working-directory and report every project found in the "projects" output (JSON for a matrix)'
+    description: 'Also inspect subdirectories and report every project in the "projects" output (JSON for a matrix).'
     required: false
     default: 'false'
   discover-max-depth:
-    description: 'How many directory levels below working-directory discover inspects (0-10)'
+    description: 'How many directory levels below working-directory discover inspects (0-10).'
     required: false
     default: '3'
   discover-exclude:
-    description: 'Globs relative to working-directory that discover skips together with everything below them, comma or newline separated (e.g. "examples, legacy/**")'
+    description: 'Globs relative to working-directory that discover skips, comma or newline separated (e.g. "examples, legacy/**").'
     required: false
     default: ''
   fail-on-unknown:
-    description: 'Fail the step when no supported project is detected (with discover: in working-directory nor below it)'
+    description: 'Fail the step when no supported project is found (with discover: neither in working-directory nor below it).'
     required: false
     default: 'false'
 
 outputs:
   language:
-    description: 'Primary language: node, python, go, rust, dart (also for Flutter projects), ruby, php, dotnet, java (Maven/Gradle) or unknown'
+    description: 'Primary language: node, python, go, rust, dart, ruby, php, dotnet, java or unknown.'
   name:
-    description: 'Project name from the manifest (package.json name, pyproject name, go.mod module path)'
-  version:
-    description: 'Application version (empty if it could not be determined)'
-  version-source:
-    description: 'Where the version was read from, e.g. package.json, pyproject.toml, VERSION, version.go, git-tag'
-  version-major:
-    description: 'Major component of the version (e.g. 1 for 1.4.2-rc.1)'
-  version-minor:
-    description: 'Minor component of the version, 0 when absent'
-  version-patch:
-    description: 'Patch component of the version, 0 when absent'
-  version-prerelease:
-    description: 'Pre-release identifier (rc.1, beta2, dev3), empty for final releases'
-  version-build:
-    description: 'Build metadata after "+" (e.g. 45 for 1.2.3+45), empty when absent'
-  is-prerelease:
-    description: 'true when the version has a pre-release identifier, otherwise false'
-  package-manager:
-    description: 'Detected package manager: npm, yarn, pnpm, bun, pip, poetry, pipenv, uv, pdm, hatch, go, dep, cargo, dart, flutter, bundler, composer, dotnet, maven, gradle'
-  package-manager-version:
-    description: 'Package manager version, if declared (packageManager field, engines, poetry.lock header, ...)'
-  language-version:
-    description: 'Runtime version constraint (.nvmrc, engines.node, .python-version, requires-python, go directive, ...)'
-  language-version-source:
-    description: 'Where language-version was read from, relative to working-directory (e.g. .nvmrc, package.json:engines.node, ../../.python-version)'
-  language-version-file:
-    description: 'File language-version was read from, relative to the workspace root, when the official setup action can read it (node-version-file, python-version-file, go-version-file, flutter-version-file, php-version-file, global-json-file, java-version-file; setup-ruby reads .ruby-version/.tool-versions/mise.toml itself) or, for Rust, the rust-toolchain file rustup reads by itself; empty otherwise'
+    description: 'Project name from the manifest (package name, module path, artifactId, ...).'
   manifest:
-    description: 'Path to the manifest file the detection is based on, relative to working-directory'
+    description: 'Manifest the detection is based on, relative to working-directory.'
+  version:
+    description: 'Application version; empty when nothing declares one.'
+  version-source:
+    description: 'Where the version came from, e.g. package.json, pyproject.toml:project.version, git-tag.'
+  version-major:
+    description: 'Major version component.'
+  version-minor:
+    description: 'Minor version component, 0 when absent.'
+  version-patch:
+    description: 'Patch version component, 0 when absent.'
+  version-prerelease:
+    description: 'Pre-release identifier (rc.1, beta2, dev3); empty for final releases.'
+  version-build:
+    description: 'Build metadata after "+" (27 in 1.4.0+27).'
+  is-prerelease:
+    description: 'true when the version has a pre-release identifier, otherwise false.'
+  package-manager:
+    description: 'Package manager or build tool: npm, pnpm, yarn, bun, pip, uv, poetry, pdm, pipenv, hatch, go, dep, cargo, dart, flutter, bundler, composer, dotnet, maven, gradle.'
+  package-manager-version:
+    description: 'Package manager version when declared (packageManager, wrapper, BUNDLED WITH, ...); for pnpm and Yarn otherwise the major implied by the lockfile.'
   lockfile:
-    description: 'Path to the lockfile relative to working-directory (may point to the workspace root, e.g. ../../pnpm-lock.yaml), empty if none'
-  workspace-root:
-    description: 'Directory to install dependencies from, relative to the workspace root: the monorepo workspace root for workspace members, otherwise working-directory'
+    description: 'Lockfile relative to working-directory (the workspace root''s for workspace members); empty when none.'
   install-command:
-    description: 'Command that installs the dependencies (npm ci, pnpm install --frozen-lockfile, uv sync --locked, ...), meant to run in workspace-root; empty when there is no safe default'
+    description: 'Dependency install command (npm ci, uv sync --locked, cargo fetch --locked, ...) to run in workspace-root; empty when there is no safe default.'
+  workspace-root:
+    description: 'Directory to install dependencies from, relative to the workspace root: the monorepo root for workspace members, else working-directory.'
   cache-dependency-path:
-    description: 'Dependency file for setup-* caching, relative to the workspace root (lockfile, or requirements.txt / manifest for pip); empty when none'
+    description: 'File for the setup actions'' cache-dependency-path, relative to the workspace root; empty when none.'
+  language-version:
+    description: 'Runtime version or constraint as written (.nvmrc, requires-python, go directive, rust-toolchain, global.json, ...).'
+  language-version-source:
+    description: 'Where language-version came from, relative to working-directory (e.g. package.json:engines.node, ../../.nvmrc).'
+  language-version-file:
+    description: 'That file relative to the workspace root, only when the setup action reads the same value from it (node-version-file, java-version-file, ...); else empty.'
   languages:
-    description: 'JSON array with the full detection result for every language found in the directory'
+    description: 'JSON array with the full result for every language found in the directory.'
   projects:
-    description: 'With discover: JSON array with one entry per project directory found (directory relative to the workspace root, languages, plus every field of the primary result); [] otherwise'
+    description: 'With discover: JSON array with one entry per project directory (directory, languages, primary result); [] otherwise.'
 
 runs:
   using: node24

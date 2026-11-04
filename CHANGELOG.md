@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - New languages are appended to the detection order (`… → dart → ruby → php → dotnet → java`). A Laravel app with its Vite `package.json` stays `node` by default — set `language-priority: php`.
+- Shorter action description — the Marketplace only accepts descriptions under 125 characters — and tighter input/output descriptions in `action.yml`.
+- README reorganised: quick start, supported ecosystems at a glance, recipes (toolchain setup, install, Docker tags, monorepo matrix), and the per-language rules in collapsible sections.
+- New test `__tests__/action.test.ts`: description length, inputs/outputs in `action.yml` matching the code, and every input and output documented in the README.
 
 ## [1.3.0] - 2026-11-04
 
