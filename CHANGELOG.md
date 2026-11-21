@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-21
+
 ### Changed
 
 - Bumped dev dependencies: `rollup` 4.67.5 → 4.68.3, `rimraf` 6.1.3 → 6.1.4 (Dependabot #18). The bundled `dist/index.js` is byte-identical. Dependabot #7 is closed as superseded: it targeted the npm `package-lock.json` from before the switch to Bun, and its versions (`rollup` ^4.64.12, `vitest` ^5.0.5) are already on `main`.
@@ -115,7 +117,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Initial release: detects language (Node.js, Python, Go), application version, package manager and runtime version constraints.
 
-[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/emilgruzalski/detect-project/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/emilgruzalski/detect-project/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/emilgruzalski/detect-project/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/emilgruzalski/detect-project/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/emilgruzalski/detect-project/compare/v1.2.0...v1.3.0
