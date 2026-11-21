@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped dev dependencies: `rollup` 4.67.5 → 4.68.3, `rimraf` 6.1.3 → 6.1.4 (Dependabot #18). The bundled `dist/index.js` is byte-identical. Dependabot #7 is closed as superseded: it targeted the npm `package-lock.json` from before the switch to Bun, and its versions (`rollup` ^4.64.12, `vitest` ^5.0.5) are already on `main`.
+
 ## [1.4.1] - 2026-11-04
 
 ### Changed
